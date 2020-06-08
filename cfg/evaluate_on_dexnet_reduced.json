@@ -2,7 +2,7 @@
   "train_batch_size": 64,
   "val_batch_size": 64,
   "num_epochs": 50,
-  "eval_frequency": 2,
+  "eval_frequency": 5,
   "save_frequency": 2,
   "vis_frequency": 10000,
   "log_frequency": 1000,
@@ -120,6 +120,6 @@
     "bias": 1.0,
     "relu_coeff": 0.0
   },
-  "dataset_dir": "data/training/Cornell",
+  "dataset_dir": "data/training/dexnet_2_reduced",
   "split_name": "image_wise"
 }

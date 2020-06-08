@@ -120,6 +120,6 @@
     "bias": 1.0,
     "relu_coeff": 0.0
   },
-  "dataset_dir": "/home/annako/Documents/gqcnn/data/training/dexnet_2_tensor",
+  "dataset_dir": "/data/training/dexnet_2_tensor",
   "split_name": "image_wise"
 }
