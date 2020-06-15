@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from PIL import Image,ImageDraw,ImageFont
+from PIL import Image,ImageDraw,ImageFont,ImageColor
 import json
 from autolab_core import YamlConfig,Logger,BinaryClassificationResult,Point
 
@@ -16,12 +16,13 @@ from gqcnn.grasping import Grasp2D
 
 class GQCNN_Analyse():
 
-	def __init__(self, verbose=True, plot_backend="pdf"):
+	def __init__(self, verbose=True, plot_backend="pdf",model ="DexNet"):
 
 		self.metric_thresh = 0.002    # Change metric threshold here if needed!
 		self.verbose = verbose
 		plt.switch_backend(plot_backend)
-		self.num_images = 300		# Amount of images for plotting. Set to None if you want to plot all images
+		self.num_images = 120		# Amount of images for plotting. Set to None if you want to plot all images
+		self.model = model
 
 	def scale(self,X,x_min=0,x_max=255):
 		X_flattend = X.flatten()
@@ -36,12 +37,23 @@ class GQCNN_Analyse():
 		# Visualising the grasp
 
 		data = self.scale(image_arr[:,:,0])
-		image = Image.fromarray(data)
+		image = Image.fromarray(data).convert('RGB')
 		font = ImageFont.truetype(font="/home/annako/Desktop/arial_narrow_7.ttf",size=20)
 		draw = ImageDraw.Draw(image)
-		draw.line([16-width/2,16,16+width/2,16],fill=128) # Grasp line
-		draw.line([16-width/2,13,16-width/2,19],fill=128) # Vertical lines for end of grasp
-		draw.line([16+width/2,13,16+width/2,19],fill=128)
+		if results.labels[j] == 0:
+			filling = (250,0,0,128)
+		else:
+			filling = (0,100,0,128)
+		draw.line([16-width/2-5,16,16-width/2,16],fill=filling) # Grasp line
+		draw.line([16+width/2,16,16+width/2+5,16],fill=filling) # Grasp line
+
+		draw.line([16-width/2,13,16-width/2,19],fill=filling) # Vertical lines for end of grasp
+		draw.line([16+width/2,13,16+width/2,19],fill=filling)
+
+		# Draw grasp point
+
+		draw.line([16,16,16,16],fill=filling) # Vertical lines for end of grasp
+
 		image = image.resize((300,300))
 		# Add prediction and label
 		draw2 = ImageDraw.Draw(image)
@@ -61,18 +73,29 @@ class GQCNN_Analyse():
 
 		pos_errors,neg_errors = self._calculate_prediction_errors(predictions,labels)
 		binwidth = 0.02
-
-		plt.hist(pos_errors,bins=np.arange(0,1+binwidth,binwidth))
-		plt.xlabel("Absolute Prediction Error",fontsize=14)
-		plt.title("Error on successful grasps",fontsize=18)
-		plt.savefig(output_dir+"/err_pos_"+savestring+".png")
-		plt.close()		
-
-		plt.hist(neg_errors,bins=np.arange(0,1+binwidth,binwidth))
-		plt.xlabel("Absolute Prediction Error",fontsize=14)
-		plt.title("Error on unsuccessful grasps",fontsize=18)
-		plt.savefig(output_dir+"/err_neg_"+savestring+".png")
-		plt.close()
+		if len(pos_errors) > 0:
+			plt.hist(pos_errors,bins=np.arange(0,1+binwidth,binwidth))
+			axes = plt.gca()
+			y0,y1 = axes.get_ylim()
+			plt.axvline(x=0.5,color='r')
+			plt.text(0.1,y1/2,'Positive prediction',color='r')
+			plt.text(0.6,y1/2,'Negative prediction',color='r')
+			plt.xlabel("Absolute Prediction Error",fontsize=14)
+			plt.title("Error on successful grasps",fontsize=18)
+			plt.savefig(output_dir+"/err_pos_"+savestring+".png")
+			plt.close()	
+	
+		if len(neg_errors) > 0:
+			plt.hist(neg_errors,bins=np.arange(0,1+binwidth,binwidth))
+			axes = plt.gca()
+			y0,y1 = axes.get_ylim()
+			plt.axvline(x=0.5,color='r')
+			plt.text(0.1,y1/2,'Positive prediction',color='r')
+			plt.text(0.6,y1/2,'Negative prediction',color='r')
+			plt.xlabel("Absolute Prediction Error",fontsize=14)
+			plt.title("Error on unsuccessful grasps",fontsize=18)
+			plt.savefig(output_dir+"/err_neg_"+savestring+".png")
+			plt.close()
 		
 #		plt.rc('axes',edgecolor='w')
 #		plt.rc('text',color='w')
@@ -100,14 +123,28 @@ class GQCNN_Analyse():
 	def _plot_grasp_perturbations(self,degrees,accuracies,output_dir):
 		plt.plot(degrees,accuracies,'-x',linewidth=2,markersize=10)
 		plt.grid(color=(0.686,0.667,0.667),linestyle='--')
-		plt.title('Classification accuracy for DexNet \n with grasp rotations',fontsize=16)
+		plt.title('Classification accuracy for ' + self.dset +' \n with grasp rotations on '+self.model+' model',fontsize=16)
 		plt.xlabel("Grasp rotation perturbation [deg]",fontsize=12)
 		plt.ylabel("Classification accuracy [%]",fontsize=12)
 		plt.ylim((0,102))
 		plt.savefig(output_dir+"/Grasp_rotation_accuracy.png")
 		plt.close()
 	
-	def run_analysis(self, model_dir,output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis):
+	def _plot_single_grasp_perturbations(self,degrees,pred_err,output_dir):
+		plt.plot(degrees,pred_err,'-x',linewidth=2,markersize=10)
+		plt.grid(color=(0.686,0.667,0.667),linestyle='--')
+		plt.title('Prediction errors for positive '+self.dset+' grasps \n with rotations on '+self.model+' model',fontsize=16)
+		plt.xlabel("Grasp rotation perturbation [deg]",fontsize=12)
+		plt.ylabel("Absolute prediction error",fontsize=12)
+		plt.ylim((0,1.1))
+		horizontal = np.array([0.5 for i in range(len(degrees))])
+		plt.text(-7,0.25,'Positive prediction',color='r')
+		plt.text(-7,0.75,'Negative prediction',color='r')
+		plt.plot(degrees,horizontal, 'r--')
+		plt.savefig(output_dir+"/Grasp_rotation_err.png")
+		plt.close()
+
+	def run_analysis(self, model_dir,output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis,single_analysis):
 
 		# Determine model name
 		model_name = ""
@@ -122,6 +159,11 @@ class GQCNN_Analyse():
 			output_dir = os.path.join(output_dir, "Depth_Comparison/")
 		if perturb_analysis:
 			output_dir = os.path.join(output_dir, "Perturbation_Analysis/")
+		if single_analysis:
+			output_dir = os.path.join(output_dir, "Single_Analysis/")
+
+		if not os.path.exists(output_dir):
+			os.mkdir(output_dir)
 
 		# Set up logger.
 		self.logger = Logger.get_logger(self.__class__.__name__,
@@ -134,10 +176,11 @@ class GQCNN_Analyse():
 		self.logger.info("Saving output to %s" % (output_dir))
 
 		# Run predictions
-		result = self._run_prediction(model_dir, output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis) 
+		result = self._run_prediction(model_dir, output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis,single_analysis) 
+
 		
 
-	def _run_prediction(self,model_dir,model_output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis):
+	def _run_prediction(self,model_dir,model_output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis,single_analysis):
 		"""Predict the outcome of the file for a single model."""
 
 		# Read in model config.
@@ -164,6 +207,13 @@ class GQCNN_Analyse():
 			image_arr,pose_arr,labels,width_arr,file_arr,depth_arr = self._read_data(data_dir,depth=True)
 		elif perturb_analysis:
 			image_arr,pose_arr,labels,width_arr,file_arr,perturb_arr = self._read_data(data_dir,perturb=True)
+		elif single_analysis:
+			image_arr,pose_arr,labels,width_arr,file_arr,perturb_arr = self._read_data(data_dir,perturb=True)
+			model_output_dir = os.path.join(model_output_dir, str(file_arr[0][0])+'_'+str(file_arr[0][1]))
+			print("New output direction is: ",model_output_dir)
+			if not os.path.exists(model_output_dir):
+				os.mkdir(model_output_dir)
+				
 		else:
 			image_arr,pose_arr,labels,width_arr,file_arr = self._read_data(data_dir)
 		# Predict outcomes
@@ -175,6 +225,7 @@ class GQCNN_Analyse():
 		if noise_analysis:
 			# Analyse the error rates in regard to the noise levels of the images
 			noise_levels = np.unique(noise_arr)
+			levels = len(noise_levels)
 			for current_noise in noise_levels:
 				pred = predictions[noise_arr[:,0]==current_noise]
 				lab = labels[noise_arr[:,0]==current_noise]
@@ -187,6 +238,7 @@ class GQCNN_Analyse():
 		elif depth_analysis:
 			# Analyse the error rates in regard to the grasping depth in the images
 			depth_levels = np.unique(depth_arr)
+			levels = len(depth_levels)
 			for current_depth in depth_levels:
 				if current_depth == -1:
 					depth_mode = 'original'
@@ -203,6 +255,7 @@ class GQCNN_Analyse():
 		elif perturb_analysis:
 			# Analyse the error rates in regard to the grasping perturb in the images
 			perturb_levels = np.unique(perturb_arr)
+			levels = len(perturb_levels)
 			accuracies = []
 			for current_perturb in perturb_levels:
 				perturb_mode = 'rotation %.0f deg' % (current_perturb)
@@ -216,12 +269,47 @@ class GQCNN_Analyse():
 				self.logger.info("Grasp %s Model %s loss: %.3f" %
 					(perturb_mode, model_dir, res.cross_entropy_loss))
 			self._plot_grasp_perturbations(perturb_levels,accuracies,model_output_dir)
+		elif single_analysis:
+			# Analyse the error rates in regard to the grasping perturb in the images
+			perturb_levels = np.unique(perturb_arr)
+			levels = len(perturb_levels)
+			abs_pred_errors = []
+			for current_perturb in perturb_levels:
+				perturb_mode = 'rotation %.0f deg' % (current_perturb)
+				pred = predictions[perturb_arr==current_perturb]
+				lab = labels[perturb_arr==current_perturb]
+				res = BinaryClassificationResult(pred[:,1],lab)
+				pos_errors,neg_errors = self._calculate_prediction_errors(pred[:,1],lab)
+				abs_pred_errors.append(pos_errors)
+				self._plot_histograms(pred[:,1],lab,'rotation_%.0f_deg'%(current_perturb),model_output_dir)
+				self.logger.info("Grasp %s Model %s error rate: %.3f" %
+					(perturb_mode, model_dir, res.error_rate))
+				self.logger.info("Grasp %s Model %s loss: %.3f" %
+					(perturb_mode, model_dir, res.cross_entropy_loss))
+			self._plot_single_grasp_perturbations(perturb_levels,abs_pred_errors,model_output_dir)
+
 		else:
+			levels = 1
 			self._plot_histograms(predictions[:,1],labels,'',model_output_dir)
 			self.logger.info("Model %s error rate: %.3f" %
 				(model_dir, results.error_rate))
 			self.logger.info("Model %s loss: %.3f" %
 				(model_dir, results.cross_entropy_loss))
+
+		# Log the ratios
+		pos_lab = labels[labels==1]
+		neg_lab = labels[labels==0]
+
+		self.logger.info("%d samples, %d grasps" % (len(labels), len(labels)/levels))
+		self.logger.info("%d positive grasps, %d negative grasps" % (len(pos_lab)/levels,len(neg_lab)/levels))
+		self.logger.info("Model overall accuracy %.2f" % (100-results.error_rate))
+		self.logger.info("True positive samples: %d" %(len(results.true_positive_indices)))
+		self.logger.info("True negative samples: %d" %(len(results.true_negative_indices)))
+		self.logger.info("Correct predictions: %d" %(len(results.true_positive_indices)+len(results.true_negative_indices)))
+		self.logger.info("False positive samples: %d" %(len(results.false_positive_indices)))
+		self.logger.info("False negative samples: %d" %(len(results.false_negative_indices)))
+		self.logger.info("False predictions: %d" %(len(results.false_positive_indices)+len(results.false_negative_indices)))
+
 
 		cnt = 0 # Counter for grouping the same images with different noise/depth levels
 		if self.num_images == None or self.num_images > len(width_arr):
@@ -239,7 +327,7 @@ class GQCNN_Analyse():
 				image = self._plot_grasp(image_arr[j],width_arr[j],results,j,noise_arr=noise_arr)
 			elif depth_analysis:
 				image = self._plot_grasp(image_arr[j],width_arr[j],results,j,depth_arr=depth_arr)
-			elif perturb_analysis:
+			elif perturb_analysis or single_analysis:
 				image = self._plot_grasp(image_arr[j],width_arr[j],results,j,perturb_arr=perturb_arr)
 			else:
 				image = self._plot_grasp(image_arr[j],width_arr[j],results,j)
@@ -259,6 +347,12 @@ class GQCNN_Analyse():
 		# predicting on bunch of images at a time.
 
 		read_file_arr = True
+		if 'Cornell' in data_dir:
+			self.dset = 'Cornell'
+		elif 'dexnet' in data_dir or 'DexNet' in data_dir or 'Dexnet' in data_dir:
+			self.dset = 'DexNet'
+		else:
+			self.dset = 'Unknown'
 
 		files = os.listdir(data_dir)
 		image_arr = np.empty((32,32,1)) 
@@ -381,21 +475,36 @@ if __name__ == "__main__":
 		output_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
 									"../analysis/SingleFiles")
 	
+	# Set model type for diagrams
+	if 'Cornell' in model_name:
+		model = 'Cornell'	
+	else:
+		model = 'DexNet'
+
 	# Set the noise and depth analysis
 
 	if analysis_type == 'noise' or analysis_type == 'Noise':
 		noise_analysis = True
 		depth_analysis = False
 		perturb_analysis = False
+		single_analysis = False
 	elif analysis_type == 'depth' or analysis_type == 'Depth':
 		noise_analysis = False
 		depth_analysis = True
 		perturb_analysis = False
+		single_analysis = False
 	elif analysis_type == 'perturbation' or analysis_type == 'Perturbation':
 		noise_analysis = False
 		depth_analysis = False
 		perturb_analysis = True
+		single_analysis = False
+	elif analysis_type == 'single' or analysis_type =='Single':
+		single_analysis = True
+		noise_analysis = False
+		depth_analysis = False
+		perturb_analysis = False
 	else:
+		single_analysis = False
 		noise_analysis = False
 		depth_analysis = False
 		perturb_analysis = False
@@ -409,5 +518,5 @@ if __name__ == "__main__":
 		os.mkdir(output_dir)
 
 	# Initalise analyser and run analysis.
-	analyser = GQCNN_Analyse()
-	analyser.run_analysis(model_dir,output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis)
+	analyser = GQCNN_Analyse(model = model)
+	analyser.run_analysis(model_dir,output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis,single_analysis)
