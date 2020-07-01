@@ -9,7 +9,7 @@ import argparse
 # training data, manually or from csv files. 
 
 class Modification():
-	def __init__(self,selection):
+	def __init__(self,selection,Cornell=False):
 
 		# "Preallocate" variables
 		self.image_arr = []
@@ -23,10 +23,17 @@ class Modification():
 		self.counter = 0
 
 		# Set paths
-		self.export_path = "./data/training/Subset_datasets/DexNet_"
-		self.data_path = "./data/training/dexnet_2_tensor/tensors/"
-		self.csv_dir = "./data/training/csv_files/"
-		split = "./data/training/dexnet_2_tensor/splits/image_wise/train_indices.npz"
+		if Cornell ==True:
+			self.export_path = "./data/training/Subset_datasets/Cornell_"
+			self.data_path = "./data/training/Cornell/tensors/"
+			self.csv_dir = "./data/training/csv_files/"
+			split = "./data/training/Cornell/splits/image_wise/train_indices.npz"
+
+		else:
+			self.export_path = "./data/training/Subset_datasets/DexNet_"
+			self.data_path = "./data/training/dexnet_2_tensor/tensors/"
+			self.csv_dir = "./data/training/csv_files/"
+			split = "./data/training/dexnet_2_tensor/splits/image_wise/train_indices.npz"
 		self.split = np.load(split)['arr_0']
 
 		self.images_per_file = 500
@@ -240,9 +247,14 @@ if __name__ == "__main__":
 				type = str,
 				default = 'random',
 				help = "Selection process. 'random', 'manual' or 'csv' possible.")
+	parser.add_argument("--Cornell",
+				type = bool,
+				default = False,
+				help = "Take Cornell dataset. Default is DexNet-2.0")
 	args = parser.parse_args()
 	selection = args.selection
-	modifier = Modification(selection)
+	cornell = args.Cornell
+	modifier = Modification(selection,cornell)
 	if args.noise:
 		modifier.modify_noise()
 	elif args.depth:

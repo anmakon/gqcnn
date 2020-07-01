@@ -4,15 +4,33 @@ import argparse
 import os
 
 
-class Generate_Depth_Maps()
-	def __init__(self,data_path,output_path,selection,tensor=None,array=None)
+class Generate_Depth_Maps():
+	def __init__(self,data_path,output_path,selection,tensor=None,array=None):
 		self.data_path = data_path
 		self.output_path = output_path
-		if selection == 'Manual' and tensor not None and array not None:
+
+		if 'dexnet_2_tensor' in data_path:
+			self.dset = 'DexNet'
+		else:
+			self.dset = 'Cornell'
+		
+		if tensor is not None and array is not None:
 			self.tensor = tensor
 			self.array = array
-			self.main() 
+			self._create_depthmap() 
+			return None
 		
+	def _create_depthmap(self):
+		filestring = ("{0:05d}").format(self.tensor)
+		depth_ims = np.load(self.data_path+"depth_ims_tf_table_"+filestring+".npz")['arr_0'][self.array].flatten()
+		binwidth = 0.001
+		plt.hist(depth_ims,bins = np.arange(min(depth_ims),max(depth_ims)+binwidth,binwidth))
+		plt.title("Depths in file "+filestring+", array "+ str(array)+' '+self.dset+ ' dataset')
+		plt.xlabel("Depth [m]")
+		plt.ylim((0,1030))
+		plt.xlim((0.6,0.8))
+		plt.savefig(self.output_path+filestring+'_'+str(array))
+		return None
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser()
@@ -38,19 +56,20 @@ if __name__ == "__main__":
 	dset = args.dset
 	selection = args.selection
 	if dset == 'Cornell' or dset == 'cornell':
-		data_path = /home/annako/Documents/gqcnn/data/training/Cornell/tensors/
-		output_path = /home/annako/Documents/gqcnn/analysis/SingleFiles/Cornell_DepthMaps/
+		data_path = './data/training/Cornell/tensors/'
+		output_path = './analysis/SingleFiles/Cornell_DepthMaps/'
 	elif dset == 'DexNet' or dset=='Dexnet' or dset == 'dexnet':
-		data_path = /home/annako/Documents/gqcnn/data/training/dexnet_2_tensor/tensors/
-		output_path = /home/annako/Documents/gqcnn/analysis/SingleFiles/DexNet_DepthMaps/
+		data_path = './data/training/dexnet_2_tensor/tensors/'
+		output_path = './analysis/SingleFiles/DexNet_DepthMaps/'
 	else:
 		raise ValueError("No recognisable dataset name given.")
+
 	if not os.path.exists(output_path):
 		os.mkdir(output_path)
-		print("Writing to",output_path)
+	print("Writing to",output_path)
 	if not os.path.exists(data_path):
 		raise NameError("Path to data does not exist.")
-	if tensor not None and array not None:
+	if tensor is not None and array is not None:
 		Generate_Depth_Maps(data_path,output_path,selection,tensor,array)
 	else:
 		Generate_Depth_Maps(data_path,output_path,selection)

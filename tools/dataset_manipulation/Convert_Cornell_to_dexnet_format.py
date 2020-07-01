@@ -10,6 +10,7 @@ class Conversion:
 		self.testing = False 
 		self.export_path = "./data/training/Cornell/tensors/"
 		self.data_path = "./data/training/Cornell/original/"
+		self.adjust_width = False
 		if self.testing == True:
 			self.export_path = "/home/annako/Desktop/Cornell_presentation/"
 		if not os.path.exists(os.path.abspath(self.export_path)):
@@ -33,7 +34,7 @@ class Conversion:
 		self.label_mapping = None # Array for constructing object_labels 
 
 	def start_converting(self):
-		self.label_mapping = pd.read_csv("z.txt",sep=" ", header=None,usecols=[i for i in range(2)]).drop_duplicates().to_numpy()
+		self.label_mapping = pd.read_csv(self.data_path+"z.txt",sep=" ", header=None,usecols=[i for i in range(2)]).drop_duplicates().to_numpy()
 		# Iterate through all files in directory
 		for any_file in os.listdir(self.data_path):
 			if not 'cneg' in any_file and not 'cpos' in any_file and not 'z.' in any_file and any_file.endswith(".txt"):
@@ -53,9 +54,9 @@ class Conversion:
 	
 	def _read_image(self,filename):
 		# read in picture, conversion 1D->2D according to Cornell website.
-		point_cloud = pd.read_csv(filename,sep=" ",header=None, skiprows=10).to_numpy()
-#		depth_im = np.full((480,640),self.camera_height)
-		depth_im = np.zeros((480,640))
+		point_cloud = pd.read_csv(self.data_path+filename,sep=" ",header=None, skiprows=10).to_numpy()
+		depth_im = np.full((480,640),self.camera_height)
+#		depth_im = np.zeros((480,640))
 		for point in point_cloud:
 			index = point[4]
 			row = int(index//640) # Given by ReadMe of Cornell data!
@@ -124,31 +125,34 @@ class Conversion:
 		return None 
 
 	def _calc_gripper_width(self,x_dist,y_dist):
-#		if x_dist == 0:
-#			gripper_width = int(np.abs(y_dist)/5) # 1/5 because of resizing from 300x300 --> 60x60
-#		elif y_dist == 0:
-#			gripper_width = int(np.abs(x_dist)/5)
-#		else:
-#			gripper_width = int(np.sqrt(x_dist**2+y_dist**2)/5)
-		
-		# Width adjustment
-
-		if x_dist == 0:
-			gripper_width =np.abs(y_dist)
-		elif y_dist == 0:
-			gripper_width = np.abs(x_dist)
+		if not self.adjust_width:
+			if x_dist == 0:
+				gripper_width = int(np.abs(y_dist)/5) # 1/5 because of resizing from 300x300 --> 60x60
+			elif y_dist == 0:
+				gripper_width = int(np.abs(x_dist)/5)
+			else:
+				gripper_width = int(np.sqrt(x_dist**2+y_dist**2)/5)
 		else:
-			gripper_width = np.sqrt(x_dist**2+y_dist**2)
-		
+			# Width adjustment
+			if x_dist == 0:
+				gripper_width =np.abs(y_dist)
+			elif y_dist == 0:
+				gripper_width = np.abs(x_dist)
+			else:
+				gripper_width = np.sqrt(x_dist**2+y_dist**2)
 
 		return gripper_width
 
 	def _crop_and_safe(self,im,crop_area,angle,x,y,gripper_width):
-		scale_factor = 13/gripper_width
-		res_im = im.crop(crop_area).rotate(angle+180).resize((int(300*scale_factor),int(300*scale_factor)))
-		width,height = res_im.size
-		res_im = res_im.crop((width/2-16,height/2-16,width/2+16,width/2+16))
-
+		if self.adjust_width:
+			scale_factor = 13/gripper_width
+			res_im = im.crop(crop_area).rotate(angle+180).resize((int(300*scale_factor),int(300*scale_factor)))
+			width,height = res_im.size
+			res_im = res_im.crop((width/2-16,height/2-16,width/2+16,width/2+16))
+			gripper_width = 13
+		else:
+			res_im = im.crop(crop_area).rotate(angle+180).resize((60,60)).crop((14,14,46,46))
+			
 #		bin_im = rgb_im.crop(crop_area).rotate(angle+180).resize((60,60)).crop((14,14,46,46)).convert(mode="1")
 		if self.testing == True:
 			cropped = res_im.resize((200,200))
@@ -156,7 +160,7 @@ class Conversion:
 		depth_im_tf = [[[point] for point in row] for row in np.asarray(res_im)]
 		self.depth_ims_tf.append(depth_im_tf)
 		grasp_depth = 0.4*np.max(depth_im_tf)+0.6*np.min(depth_im_tf)
-		return grasp_depth, im, 13
+		return grasp_depth, im, gripper_width
 
 	def _visualize_image(self):
 		self.testing = True

@@ -25,13 +25,15 @@ class Grasp_perturbation():
 		self.num_grasps = 1000
 		self.ratio_pos = 1
 		
-		self.perturbation = perturb  # 0 - rotation; 1 - translation
+		self.perturbation = perturb  # 0 - rotation; 1 - translation x; 2 - translation y
 		if self.perturbation == 0 :
 			mode = 'Rotation'
-		else:
+		elif self.perturbation == 1:
 			mode = 'Translation'
+		elif self.perturbation == 2:
+			mode = 'Translationy'
 		self.perturb_step = 1 
-		if self.perturbation == 1:
+		if self.perturbation == 1 or self.perturbation == 2:
 			self.steps = 10
 		elif self.perturbation == 0:
 			self.steps = 60
@@ -134,10 +136,13 @@ class Grasp_perturbation():
 		depth_tf_rot = [[[point] for point in row] for row in np.asarray(new_im)]
 		return depth_tf_rot
 
-	def _add_translation(self,depth_tf,trans):
+	def _add_translation(self,depth_tf,trans,y=False):
 		table = np.amax(depth_tf[:,:,0])
 		im = Image.fromarray(depth_tf[:,:,0]).resize((200,200))
-		new_im = im.transform(im.size,method = Image.AFFINE,data=(1,0,trans,0,1,0),fillcolor=table).resize((32,32))
+		if not y:
+			new_im = im.transform(im.size,method = Image.AFFINE,data=(1,0,trans,0,1,0),fillcolor=table).resize((32,32))
+		else:
+			new_im = im.transform(im.size,method = Image.AFFINE,data=(1,0,0,0,1,trans),fillcolor=table).resize((32,32))
 		depth_tf_trans = [[[point] for point in row] for row in np.asarray(new_im)]
 		return depth_tf_trans
 
@@ -183,10 +188,13 @@ class Grasp_perturbation():
 					var = i - self.steps/2
 					if self.perturbation == 0:
 						new_depth_ims = self._add_rotation(depth_ims,var)
-						perturb = [var,0]
+						perturb = [var,0,0]
 					elif self.perturbation == 1:
 						new_depth_ims = self._add_translation(depth_ims, var)
-						perturb = [0,var]
+						perturb = [0,var,0]
+					elif self.perturbation == 2:
+						new_depth_ims = self._add_translation(depth_ims, var,y=True)
+						perturb = [0,0,var]
 					self.image_arr.append(new_depth_ims)
 					self.perturb_arr.append(perturb)
 					self.save_rest(pose,metrics,files)
@@ -214,10 +222,13 @@ class Grasp_perturbation():
 						var = i - self.steps/2
 						if self.perturbation == 0:
 							new_depth_ims = self._add_rotation(depth_ims,var)
-							perturb = [var,0]
+							perturb = [var,0,0]
 						elif self.perturbation == 1:
 							new_depth_ims = self._add_translation(depth_ims, var)
-							perturb = [0,var]
+							perturb = [0,var,0]
+						elif self.perturbation == 2:
+							new_depth_ims = self._add_translation(depth_ims, var,y=True)
+							perturb = [0,0,var]
 						self.image_arr.append(new_depth_ims)
 						self.perturb_arr.append(perturb)
 						self.save_rest(pose,metrics,files)
@@ -252,7 +263,7 @@ if __name__ == "__main__":
 	parser.add_argument("--type",
 				type = str,
 				default = 'translation',
-				help ="Translation or rotation as perturbation")
+				help ="Translation or rotation or translationy as perturbation")
 	args = parser.parse_args()
 	selection = args.selection
 	tensor = args.file
@@ -263,6 +274,8 @@ if __name__ == "__main__":
 		direction = 1
 	elif perturb == 'rotation' or perturb == 'Rotation':
 		direction = 0
+	elif perturb == 'translationy' or perturb == 'Translationy' or perturb == 'translation y':
+		direction = 2
 	if dset == 'DexNet' or dset == 'dexnet' or dset == 'Dexnet':
 		dset = 'dexnet_2_tensor'
 	if tensor is not None and array is not None:

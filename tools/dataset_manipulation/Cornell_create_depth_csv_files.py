@@ -7,7 +7,7 @@ import csv
 
 class Conversion:
 	def __init__(self):
-		self.data_path "./data/training/Cornell/original/"
+		self.data_path ="./data/training/Cornell/original/"
 		self.export_path = "/home/annako/Desktop/"
 		self.camera_height = 0.70
 		self.filename = ""
