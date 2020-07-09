@@ -32,7 +32,7 @@ class GQCNN_Analyse():
 		integ.resize((32,32))
 		return integ
 
-	def _plot_grasp(self,image_arr,width,results,j,noise_arr=None,depth_arr=None,perturb_arr=None):
+	def _plot_grasp(self,image_arr,width,results,j,plt_results=True,noise_arr=None,depth_arr=None,perturb_arr=None):
 		# Creating images with the grasps.
 		# Adding text for noise/depth investigations
 		# Visualising the grasp
@@ -41,7 +41,7 @@ class GQCNN_Analyse():
 		image = Image.fromarray(data).convert('RGB')
 		font = ImageFont.truetype(font="/home/annako/Desktop/arial_narrow_7.ttf",size=20)
 		draw = ImageDraw.Draw(image)
-		if results.labels[j] == 0:
+		if results.labels[j] == 0 and plt_results:
 			filling = (250,0,0,128)
 		else:
 			filling = (0,100,0,128)
@@ -67,20 +67,21 @@ class GQCNN_Analyse():
 
 		image = image.resize((300,300))
 		# Add prediction and label
-		draw2 = ImageDraw.Draw(image)
-		draw2.text((3,3), "Pred: %.3f; Label: %.1f" % (results.pred_probs[j],results.labels[j]),fill=50,font=font)
-		if noise_arr is not None:
-			draw2.text((3,18), "Added noise: %.4f; Added tilting: %.3f" % (noise_arr[j,0],noise_arr[j,1]),fill=50,font=font)
-		if depth_arr is not None:
-			if depth_arr[j] == -1:
-				draw2.text((3,18), "Original depth",fill=50,font=font)
-			else:
-				draw2.text((3,18), "Realtive depth %.2f" % depth_arr[j],fill=50,font=font)
-		if perturb_arr is not None:
-			if perturb_arr[j,0] != 0:
-				draw2.text((3,18), "Grasp rotation: %.1f degree" % perturb_arr[j,0],fill=50,font=font)
-			elif perturb_arr[j,1] != 0:
-				draw2.text((3,18), "Grasp translation: %.1f pixel" % perturb_arr[j,1],fill=50,font=font)
+		if plt_results:
+			draw2 = ImageDraw.Draw(image)
+			draw2.text((3,3), "Pred: %.3f; Label: %.1f" % (results.pred_probs[j],results.labels[j]),fill=50,font=font)
+			if noise_arr is not None:
+				draw2.text((3,18), "Added noise: %.4f; Added tilting: %.3f" % (noise_arr[j,0],noise_arr[j,1]),fill=50,font=font)
+			if depth_arr is not None:
+				if depth_arr[j] == -1:
+					draw2.text((3,18), "Original depth",fill=50,font=font)
+				else:
+					draw2.text((3,18), "Realtive depth %.2f" % depth_arr[j],fill=50,font=font)
+			if perturb_arr is not None:
+				if perturb_arr[j,0] != 0:
+					draw2.text((3,18), "Grasp rotation: %.1f degree" % perturb_arr[j,0],fill=50,font=font)
+				elif perturb_arr[j,1] != 0:
+					draw2.text((3,18), "Grasp translation: %.1f pixel" % perturb_arr[j,1],fill=50,font=font)
 		return image
 
 	def _plot_histograms(self,predictions,labels,savestring, output_dir):
@@ -357,14 +358,14 @@ class GQCNN_Analyse():
 				# Only append positive errors if grasp was positive.
 				if pos_errors:
 					abs_pred_errors.append(pos_errors)
+				self.logger.info("Grasp %s Model %s prediction: %.3f" %
+					(perturb_mode, model_dir, pred[:,1]))
 				self.logger.info("Grasp %s Model %s error rate: %.3f" %
 					(perturb_mode, model_dir, res.error_rate))
 				self.logger.info("Grasp %s Model %s loss: %.3f" %
 					(perturb_mode, model_dir, res.cross_entropy_loss))
-			if abs_pred_errors:
+			if pos_errors:
 				self._plot_single_grasp_perturbations(perturb_levels,abs_pred_errors,model_output_dir,perturbation)
-			else:
-				raise ValueError("Single analysis only implemented for positive grasps.")
 		else:
 			levels = 1
 			self._plot_histograms(predictions[:,1],labels,'',model_output_dir)
@@ -413,6 +414,12 @@ class GQCNN_Analyse():
 			except:
 				print("Saving image did not work. Maybe due to non-excisting file_arr")
 				image.save(os.path.join(model_output_dir,"Example_%03d.png" % (cnt)))
+		if single_analysis:
+			print("Plotting depth image")
+			j = int(len(image_arr)/2)+1
+			#Plot pure depth image without prediction labeling.
+			image = self._plot_grasp(image_arr[j],width_arr[j],results,j,plt_results = False)
+			image.save(os.path.join(model_output_dir,"Depth_image.png"))
 		return results
 
 

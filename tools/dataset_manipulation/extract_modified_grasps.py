@@ -109,9 +109,9 @@ class Modification():
 			for row in reader:
 				row = [int(string) for string in row]
 				if row[0] == row[2]:
-					images = row[3]-row[1]
+					images = 1+row[3]-row[1]
 					filenumber.extend([row[0]]*images)
-					array.extend(list(range(row[1],row[3])))
+					array.extend(list(range(row[1],row[3]+1)))
 				else:
 					for sep_file in list(range(row[0],row[2])):
 						if sep_file == row[0]:

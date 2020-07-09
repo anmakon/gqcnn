@@ -17,7 +17,7 @@ class Get_Object_Label():
 		return True
 		
 	def _load_object_labels(self):
-		labels = pd.read_csv(self.data_path+"z.txt",sep=" ", header=None,usecols=[i for i in [0,1,2]]).drop_duplicates().to_numpy()
+		labels = pd.read_csv(self.data_path+"../original/z.txt",sep=" ", header=None,usecols=[i for i in [0,1,2]]).drop_duplicates().to_numpy()
 		return labels
 
 #object_labels = np.load('object_labels_'+filecnt+'.npz')

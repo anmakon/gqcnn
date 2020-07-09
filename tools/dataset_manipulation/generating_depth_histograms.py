@@ -27,8 +27,8 @@ class Generate_Depth_Maps():
 		plt.hist(depth_ims,bins = np.arange(min(depth_ims),max(depth_ims)+binwidth,binwidth))
 		plt.title("Depths in file "+filestring+", array "+ str(array)+' '+self.dset+ ' dataset')
 		plt.xlabel("Depth [m]")
-		plt.ylim((0,1030))
-		plt.xlim((0.6,0.8))
+#		plt.ylim((0,1030))
+#		plt.xlim((0.6,0.8))
 		plt.savefig(self.output_path+filestring+'_'+str(array))
 		return None
 

@@ -40,6 +40,7 @@ class Grasp_perturbation():
 
 		self.output_path = "./data/training/Subset_datasets/"+out+"_"+mode+"Perturb/"
 		self.data_path = "./data/training/"+dset+"/tensors/"		
+		self.csv_path = "./data/training/csv_files/"
 		split = "./data/training/"+dset+"/splits/image_wise/train_indices.npz"
 		self.split = np.load(split)['arr_0']
 		
@@ -97,11 +98,13 @@ class Grasp_perturbation():
 	def list_of_images(self):
 		filenumber = []
 		array = []
-		path = input("Give the path of the input file")
+		print("Stored csv files: ",os.listdir(self.csv_path))
+		print()
+		csv_filename = input("Give the path of the input file: "+self.csv_path)
+		path = self.csv_path + csv_filename
 		# Adjust the path names for saving for the objects.
-		split1 = path.split(separator="/")
-		csv_object = split1[-1].split(separator="_")[-1][0:-4]
-		save_path = self.output_path.split(separator="_")
+		csv_object = csv_filename.split("_")[-1][0:-4]
+		save_path = self.output_path.split("_")
 		self.output_path = save_path[0:-2]+csv_object+save_path[-1]
 		# Read the csv file
 		with open(path+'.csv',newline='') as csvfile:

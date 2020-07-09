@@ -27,7 +27,7 @@ class Show_Images():
 	def main(self):
 		match = []
 		cnt = 0
-		label_mapping = pd.read_csv(self.data_path+"z.txt",sep=" ", header=None,usecols=[i for i in [0,1,2]]).drop_duplicates().to_numpy()
+		label_mapping = pd.read_csv(self.data_path+"../original/z.txt",sep=" ", header=None,usecols=[i for i in [0,1,2]]).drop_duplicates().to_numpy()
 		object_labels = np.array(self.load_object_labels()) 
 		fileindex_saving = []
 		x = 'o'
@@ -69,7 +69,7 @@ class Show_Images():
 
 	def save_fileindex_csv(self, content):
 		pathname = input("Name for the csv file: ")
-		savepath = "/home/annako/Documents/gqcnn/data/training/Subset_datasets/csv_files/"+pathname+".csv"
+		savepath = "./data/training/csv_files/"+pathname+".csv"
 		with open(savepath,'w',newline='') as csvfile:
 			writer = csv.writer(csvfile,delimiter = ',')
 			for row in content:
