@@ -8,10 +8,17 @@ import os
 import argparse
 
 class Conversion:
+	""" Class to convert data from the Cornell format (rgb images, point clouds and positive/negative
+	grasping rectangulars) to the DexNet format (32x32x1 depth images, hand poses and the robust epsilon metric).
+	"""
+
+
 	def __init__(self,export_path):
 		self.visual_mode = False #To visualise the images/grasping rectangulars
 		self.single_image_mode = False
 		self.adjust_width = False
+		self.creating_original = False
+		self.camera_variation = False
 		self.export_path = export_path 
 
 		if not os.path.exists(os.path.abspath(self.export_path)):
@@ -23,8 +30,12 @@ class Conversion:
 		self.data_path = "./data/training/Cornell/original/"
 
 		self.crop_size = 150
-		self.resize_size = 60
-		self.camera_height = 0.70 # Artificial camera height in Cornell
+		resize_factor = 3 #Resizing factor 3 in DexNet real experiments
+		self.resize_size = int(self.crop_size*2/resize_factor)
+		if self.camera_variation is False:
+			self.camera_height = 0.70 # Artificial camera height in Cornell
+		else:
+			self.camera_height = [0.65,0.75]
 
 		# Variables to construct the dexnet dataset
 
@@ -40,6 +51,25 @@ class Conversion:
 		self.object_labels = [] # Array for dexnet dataset reconstruction (object_labels)
 		self.image_labels = [] # Array for dexnet dataset reconstruction (image_labels)
 		self.label_mapping = pd.read_csv(self.data_path+"z.txt",sep=" ", header=None,usecols=[i for i in range(2)]).drop_duplicates().to_numpy()
+
+	def create_orig(self,num):
+		"""
+		Creating an depth image and a binary image from the pointcloud.
+		Saving it for usage to plan grasps.
+		"""
+		self.creating_original = True
+		filenum = ("{0:04d}").format(num)
+		# image size: (480,640)
+		crop_area = (160,120,480,360)
+		# Get depth image, crop and save
+		image=self._read_image('pcd'+filenum+'.txt').crop(crop_area)
+		depth_im_tf = [[[point] for point in row] for row in np.asarray(image)]
+		np.save(self.export_path+'depth_0.npy',depth_im_tf)
+		# Get RGB image
+		rgb_image = Image.open(self.data_path+'pcd'+filenum+'r.png')
+		binary_image = rgb_image.crop(crop_area).convert('L')
+		binary_image.save(self.export_path+'binary_0.png')
+
 
 	def convert_all(self):
 		# Iterate through all files in directory
@@ -71,15 +101,22 @@ class Conversion:
 	def _read_image(self,filename):
 		# read in picture, conversion 1D->2D according to Cornell website.
 		point_cloud = pd.read_csv(self.data_path+filename,sep=" ",header=None, skiprows=10).to_numpy()
-		depth_im = np.full((530,640),self.camera_height)
+		if self.creating_original:
+			depth_im = np.full((480,640),self.camera_height)
+		else:
+			depth_im = np.full((530,640),self.camera_height)
 		for point in point_cloud:
 			index = point[4]
 			row = int(index//640) # Given by ReadMe of Cornell data!
 			col = int(index%640)
+			if self.camera_variation:
+				camera_height = np.random.random()*(self.camera_height[1]-self.camera_height[0])+self.camera_height[0]
+			else:
+				camera_height = self.camera_height
 			# Cornell - coordinates given in [mm] and from base cs of robot
 			# Dexnet - coordinates given in [m] and from camera cs
 			# --> conversion = x-Cornell/1000
-			depth_im[row][col] = self.camera_height-(point[2]/1000)
+			depth_im[row][col] = camera_height-(point[2]/1000)
 			if self.visual_mode:
 				depth_im[row][col] = point[2]
 		im = Image.fromarray(depth_im)
@@ -178,9 +215,6 @@ class Conversion:
 				self._save_single_image(np.asarray(res_im))
 			res_im = res_im.rotate(angle+180).resize(resizing).crop(final_crop)
 		zero_catcher = np.asarray(res_im)
-#		for sublists in zero_catcher:
-#			if any(point < 0.01 for point in sublists):
-#				return 0,im,gripper_width,True
 			
 		if self.visual_mode:
 			cropped = res_im.resize((200,200))
@@ -266,25 +300,34 @@ if __name__ == "__main__":
 				type = int,
 				default = None,
 				help = "Input to visualise/convert one single file.")
+	parser.add_argument("--create_orig",
+				type = bool,
+				default = None,
+				help = "Create original data of whole image to plan grasps")
 	parser.add_argument("--export_path",
 				type = str,
 				default = None,
 				help = "Path to export the data.")
 	args = parser.parse_args()
 	create_vis = args.create_vis
+	create_orig = args.create_orig
 	cornell_num = args.Cornell_num
 	export_path = args.export_path
 
-	if export_path is None and not create_vis and cornell_num is not None:
+	if export_path is None and not create_vis and cornell_num is not None and create_orig is None:
 		export_path = "./data/training/Subset_datasets/Cornell/"
 	elif export_path is None and create_vis:
 		export_path = "../../Desktop/Cornell_presentation/"
+	elif export_path is None and create_orig:
+		export_path =  "./data/training/Grasp_plan_data/"
 	elif export_path is None:
 		export_path =  "./data/training/Cornell/tensors/"
-	
+
 	convert = Conversion(export_path)
 	if create_vis:
 		convert.visualize_image(cornell_num)
+	elif create_orig:
+		convert.create_orig(cornell_num)
 	elif cornell_num is not None:
 		convert.convert_one_image(cornell_num)
 	else:
