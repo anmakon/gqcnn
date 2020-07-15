@@ -1,13 +1,22 @@
 import numpy as np
-import csv
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import argparse
 import os
 
+"""
+Script to analyse the absolute prediction errors of a trained (and previously analysed)
+GQCNN model. Reads in the training and validation labels/predictions of the previously
+analysed model (what has been outputted by gqcnn/analyze_gqcnn_performance.py).
+Creates .png files for the absolute prediction error on training/validation data of
+positive and negative samples.
+The plots can be configured for a white or a black background for slides.
+"""
+
 class Absolute_Prediction_Error():
 	def __init__(self):
+		self.black_background = True # Set to false if your slides have a white background
 		return None
 
 	def create_errors(self,data_dir,output_dir):
@@ -51,43 +60,51 @@ class Absolute_Prediction_Error():
 		return None
 
 	def _plot_errors(self,output_dir):
+		# Plot the absolute prediction errors. Adjust the line and histogram
+		# color accordingly to the background color
 		binwidth = 0.02
-		plt.rc('axes',edgecolor='w')
-		plt.rc('text',color='w')
-		plt.rc(('xtick','ytick'),c='w')
+		if self.black_background:
+			line_color = 'w'
+			hist_color = (0.616,0.773,0.730)
+		else:
+			line_color = 'k'
+			hist_color = (51,153,255)
+		plt.rc('axes',edgecolor=line_color)
+		plt.rc('text',color=line_color)
+		plt.rc(('xtick','ytick'),c=line_color)
 
-		plt.hist(self.train_error_pos,bins=np.arange(0,1+binwidth,binwidth),color=(0.616,0.773,0.730))
-		plt.xlabel("Absolute Prediction Error",color='w',fontsize=14)
+		plt.hist(self.train_error_pos,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
+		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
 		plt.title("Error on successful training grasps",fontsize=18)
 		plt.savefig(output_dir+"err_pos_train",transparent=True)
 		plt.close()
 
-		plt.hist(self.train_error_neg,bins=np.arange(0,1+binwidth,binwidth),color=(0.616,0.773,0.730))
-		plt.xlabel("Absolute Prediction Error",color='w',fontsize=14)
+		plt.hist(self.train_error_neg,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
+		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
 		plt.title("Error on unsuccessful training grasps",fontsize=18)
 		plt.savefig(output_dir+"err_neg_train",transparent=True)
 		plt.close()
 
-		plt.hist(self.val_error_pos,bins=np.arange(0,1+binwidth,binwidth),color=(0.616,0.773,0.730))
-		plt.xlabel("Absolute Prediction Error",color='w',fontsize=14)
+		plt.hist(self.val_error_pos,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
+		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
 		plt.title("Error on successful validation grasps",fontsize=18)
 		plt.savefig(output_dir+"err_pos_val",transparent=True)
 		plt.close()
 
-		plt.hist(self.val_error_neg,bins=np.arange(0,1+binwidth,binwidth),color=(0.616,0.773,0.730))
-		plt.xlabel("Absolute Prediction Error",color='w',fontsize=14)
+		plt.hist(self.val_error_neg,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
+		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
 		plt.title("Error on unsuccessful validation grasps",fontsize=18)
 		plt.savefig(output_dir+"err_neg_val",transparent=True)
 		plt.close()
 
-		plt.hist(self.all_error_pos,bins=np.arange(0,1+binwidth,binwidth),color=(0.616,0.773,0.730))
-		plt.xlabel("Absolute Prediction Error",color='w',fontsize=14)
+		plt.hist(self.all_error_pos,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
+		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
 		plt.title("Error on successful grasps",fontsize=18)
 		plt.savefig(output_dir+"err_pos_all",transparent=True)
 		plt.close()
 
-		plt.hist(self.all_error_neg,bins=np.arange(0,1+binwidth,binwidth),color=(0.616,0.773,0.730))
-		plt.xlabel("Absolute Prediction Error",color='w',fontsize=14)
+		plt.hist(self.all_error_neg,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
+		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
 		plt.title("Error on unsuccessful grasps",fontsize=18)
 		plt.savefig(output_dir+"err_neg_all",transparent=True)
 		plt.close()
@@ -117,7 +134,7 @@ if __name__ == "__main__":
 	parser.add_argument("--output_dir",
 				type=str,
 				default=None,
-				help="path to save the csv files")
+				help="path to save the files")
 	
 	args = parser.parse_args()
 	data_dir = args.data_dir

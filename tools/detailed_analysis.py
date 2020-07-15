@@ -11,9 +11,11 @@ import argparse
 from gqcnn.model import get_gqcnn_model
 from gqcnn.grasping import Grasp2D
 
-# This is a script to conduct a detailed analysis of a Cornell- or Dexnet subset.
-# The influence of noise or different grasping depths on the GQCNN can be analysed
+"""
+This is a script to conduct a detailed analysis of a Cornell- or Dexnet subset.
+The influence of noise or different grasping depths on the GQCNN can be analysed.
 
+"""
 class GQCNN_Analyse():
 
 	def __init__(self, verbose=True, plot_backend="pdf",model ="DexNet", dset = 'DexNet'):
@@ -26,6 +28,8 @@ class GQCNN_Analyse():
 		self.dset = dset
 
 	def scale(self,X,x_min=0,x_max=255):
+		"""Scale a depth image in order to visualise it as a greyscale
+		image. Fixed scaling from [0.6,0.75] to [0,255]."""
 		X_flattend = X.flatten()
 		scaled = np.interp(X_flattend,(0.6,0.75),(x_min,x_max)) # X_flattend.min() X_flattend.max()
 		integ = scaled.astype(np.uint8)
@@ -33,9 +37,9 @@ class GQCNN_Analyse():
 		return integ
 
 	def _plot_grasp(self,image_arr,width,results,j,plt_results=True,noise_arr=None,depth_arr=None,perturb_arr=None):
-		# Creating images with the grasps.
-		# Adding text for noise/depth investigations
-		# Visualising the grasp
+		""" Creating images with the grasps.
+		Adding text with the added noise or rotation/translation.
+		Visualising the grasp position and width"""
 
 		data = self.scale(image_arr[:,:,0])
 		image = Image.fromarray(data).convert('RGB')
@@ -85,7 +89,9 @@ class GQCNN_Analyse():
 		return image
 
 	def _plot_histograms(self,predictions,labels,savestring, output_dir):
-
+		""" Plot histograms with the absolute prediction errors.
+		Can be done for positive and negative grasps, depending
+		on the given input."""
 		pos_errors,neg_errors = self._calculate_prediction_errors(predictions,labels)
 		binwidth = 0.02
 		if len(pos_errors) > 0:
@@ -136,6 +142,9 @@ class GQCNN_Analyse():
 		return pos_prediction_errors, neg_prediction_errors
 		
 	def _plot_grasp_perturbations(self,degrees,accuracies,output_dir,mode):
+		"""Plot the grasp pertrubation against the classification accuracies
+		for multiple grasps, e.g. a whole dataset. This is usually done to
+		see the sensitivity of a whole dataset or a sub-dataset to perturbations"""
 		if mode == 'rotation':
 			unit = 'deg'
 		elif mode == 'translation':
@@ -150,6 +159,9 @@ class GQCNN_Analyse():
 		plt.close()
 	
 	def _plot_single_grasp_perturbations(self,degrees,pred_err,output_dir,mode):
+		""" Plot the grasp perturbation against the absolute prediction error.
+		This is done for single grasps, usually if you have one grasp and want
+		to visualise the prediction over rotations/translations."""
 		if mode == 'rotation':
 			unit = 'deg'
 		elif mode == 'translation':
@@ -424,11 +436,11 @@ class GQCNN_Analyse():
 
 
 	def _read_data(self,data_dir, noise=False,depth=False,perturb=False):
-		# Read in the data from the given directory.
-		# Appends all .npz file into the same array.
-		# Warning: This might be unsuitable for too many images!
-		# If the dataset is too big, think about adjusting this to 
-		# predicting on bunch of images at a time.
+		""" Read in the data from the given directory.
+		Appends all .npz file into the same array.
+		Warning: This might be unsuitable for too many images!
+		If the dataset is too big, think about adjusting this to 
+		predicting on bunch of images at a time."""
 
 		read_file_arr = True
 		if 'Cornell' in data_dir:
@@ -451,6 +463,7 @@ class GQCNN_Analyse():
 		counter = len(list(set(numbers)))
 		filenumber = ("{0:05d}").format(0)
 		# Read in first file
+		
 		image_arr= np.load(data_dir+"depth_ims_tf_table_"+filenumber+".npz")['arr_0']
 		poses = np.load(data_dir+"hand_poses_"+filenumber+".npz")['arr_0']
 		metric_arr = np.load(data_dir+"robust_ferrari_canny_"+filenumber+".npz")['arr_0']
@@ -570,33 +583,20 @@ if __name__ == "__main__":
 	else:
 		dset = 'DexNet'
 
-	# Set the noise and depth analysis
+	# Set the noise, depth and perturbation analysis
+	noise_analysis = False
+	depth_analysis = False
+	perturb_analysis = False
+	single_analysis = False
 
 	if analysis_type == 'noise' or analysis_type == 'Noise':
 		noise_analysis = True
-		depth_analysis = False
-		perturb_analysis = False
-		single_analysis = False
 	elif analysis_type == 'depth' or analysis_type == 'Depth':
-		noise_analysis = False
 		depth_analysis = True
-		perturb_analysis = False
-		single_analysis = False
 	elif analysis_type == 'perturbation' or analysis_type == 'Perturbation':
-		noise_analysis = False
-		depth_analysis = False
 		perturb_analysis = True
-		single_analysis = False
 	elif analysis_type == 'single' or analysis_type =='Single':
 		single_analysis = True
-		noise_analysis = False
-		depth_analysis = False
-		perturb_analysis = False
-	else:
-		single_analysis = False
-		noise_analysis = False
-		depth_analysis = False
-		perturb_analysis = False
 
 	# Turn relative paths absolute.
 	if not os.path.isabs(output_dir):

@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Code to create an excel-sheet overview over good and bad grasps in Cornell and DexNet.
+# Objects in the csv files usually include an apple, a mug and a banana. Good and bad grasps
+# are evaluated on a GQCNN trained on DexNet and a GQCNN trained on Cornell.
+# Set cornell=true/false and dexnet=true/false whether you want to re-evaluate the data
+# as given in the csv files or not.
+
 cornell=true
 dexnet=true
 rm -rf analysis/SingleFiles/Single_Analysis

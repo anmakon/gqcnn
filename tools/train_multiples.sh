@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Script to train a GQCNN multiple times. Used for evaluating the influence of
+# optimisation parameters on the training results.
+
 for VARIABLE in 1 2 3 4 5 6 7 8 9 10
 do
 

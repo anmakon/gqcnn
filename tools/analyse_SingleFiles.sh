@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Script to analyse a GQCNN trained on Cornell on Cornell data and a GQCNN 
+# trained on DexNet on DexNet and Cornell data. Grasps to analyse are given
+# in the corresponding csv files.
+
+
+
 cornell=false
 dexnet=true
 

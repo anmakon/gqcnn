@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Script to generate grasp planning examples for Cornell objects defined in
+# the input csv file. A best grasp with a GQCNN trained on DexNet and a grasp
+# with a GQCNN trained on Cornell is generated (if it finds any) and stored.
+
 input="data/training/csv_files/Cornell_Execution_objects.csv"
 depth="data/training/Grasp_plan_data/depth_0.npy"
 binary="data/training/Grasp_plan_data/binary_0.png"
@@ -12,11 +16,9 @@ do
 
 	save_path="./analysis/execution_real_grasps/Cornell_obj_${file}"
 	
-	echo "Model trained on DexNet"
+	echo "$file"
 
 	python examples/policy.py --depth_image "$depth" --segmask "$binary" --camera_intr "$camera" --config_filename "$config" --save_path "${save_path}_model_trained_on_DexNet" GQCNN-2.0_benchmark
-
-	echo "Model trained on Cornell"
 
 	python examples/policy.py --depth_image "$depth" --segmask "$binary" --camera_intr "$camera" --config_filename "$config" --save_path "${save_path}_model_trained_on_Cornell" GQCNN-2.0_Cornell_benchmark
 
