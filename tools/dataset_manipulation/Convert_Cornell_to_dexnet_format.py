@@ -18,7 +18,7 @@ class Conversion:
 		self.single_image_mode = False
 		self.adjust_width = False
 		self.creating_original = False
-		self.camera_variation = False
+		self.camera_variation = True
 		self.export_path = export_path 
 
 		if not os.path.exists(os.path.abspath(self.export_path)):
@@ -67,7 +67,9 @@ class Conversion:
 		np.save(self.export_path+'depth_0.npy',depth_im_tf)
 		# Get RGB image
 		rgb_image = Image.open(self.data_path+'pcd'+filenum+'r.png')
-		binary_image = rgb_image.crop(crop_area).convert('L')
+		thresh = 200
+		fn = lambda x: 250 if x > thresh else 0
+		binary_image = rgb_image.crop(crop_area).convert('L').point(fn,mode='1')
 		binary_image.save(self.export_path+'binary_0.png')
 
 
@@ -101,18 +103,18 @@ class Conversion:
 	def _read_image(self,filename):
 		# read in picture, conversion 1D->2D according to Cornell website.
 		point_cloud = pd.read_csv(self.data_path+filename,sep=" ",header=None, skiprows=10).to_numpy()
-		if self.creating_original:
-			depth_im = np.full((480,640),self.camera_height)
+		if self.camera_variation:
+			camera_height = np.random.random()*(self.camera_height[1]-self.camera_height[0])+self.camera_height[0]
 		else:
-			depth_im = np.full((530,640),self.camera_height)
+			camera_height = self.camera_height
+		if self.creating_original:
+			depth_im = np.full((480,640),camera_height)
+		else:
+			depth_im = np.full((530,640),camera_height)
 		for point in point_cloud:
 			index = point[4]
 			row = int(index//640) # Given by ReadMe of Cornell data!
 			col = int(index%640)
-			if self.camera_variation:
-				camera_height = np.random.random()*(self.camera_height[1]-self.camera_height[0])+self.camera_height[0]
-			else:
-				camera_height = self.camera_height
 			# Cornell - coordinates given in [mm] and from base cs of robot
 			# Dexnet - coordinates given in [m] and from camera cs
 			# --> conversion = x-Cornell/1000
@@ -203,7 +205,7 @@ class Conversion:
 	def _crop_and_safe(self,im,crop_area,angle,x,y,gripper_width):
 		if self.adjust_width:
 			scale_factor = 13/gripper_width
-			res_im = im.crop(crop_area).rotate(angle+180).resize((int(300*scale_factor),int(300*scale_factor)))
+			res_im = im.crop(crop_area).rotate(angle).resize((int(300*scale_factor),int(300*scale_factor)))
 			width,height = res_im.size
 			res_im = res_im.crop((width/2-16,height/2-16,width/2+16,width/2+16))
 			gripper_width = 13
@@ -213,7 +215,7 @@ class Conversion:
 			res_im = im.crop(crop_area)
 			if self.single_image_mode and self.grasp_counter == 0:
 				self._save_single_image(np.asarray(res_im))
-			res_im = res_im.rotate(angle+180).resize(resizing).crop(final_crop)
+			res_im = res_im.rotate(angle).resize(resizing).crop(final_crop)
 		zero_catcher = np.asarray(res_im)
 			
 		if self.visual_mode:

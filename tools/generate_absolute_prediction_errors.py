@@ -68,7 +68,7 @@ class Absolute_Prediction_Error():
 			hist_color = (0.616,0.773,0.730)
 		else:
 			line_color = 'k'
-			hist_color = (51,153,255)
+			hist_color = (0.2,0.6,1)
 		plt.rc('axes',edgecolor=line_color)
 		plt.rc('text',color=line_color)
 		plt.rc(('xtick','ytick'),c=line_color)
