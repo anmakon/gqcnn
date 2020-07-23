@@ -13,7 +13,9 @@ build/
 develop-eggs/
 dist/
 downloads/
-data/training/
+data/
+analysis/
+models/
 eggs/
 .eggs/
 lib/

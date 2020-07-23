@@ -81,6 +81,10 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="path to configuration file to use")
+    parser.add_argument("--save_path",
+                        type=str,
+                        default=None,
+                        help="path to save the visualisation")
     parser.add_argument(
         "--fully_conv",
         action="store_true",
@@ -92,6 +96,7 @@ if __name__ == "__main__":
     segmask_filename = args.segmask
     camera_intr_filename = args.camera_intr
     model_dir = args.model_dir
+    save_path = args.save_path
     config_filename = args.config_filename
     fully_conv = args.fully_conv
 
@@ -265,4 +270,7 @@ if __name__ == "__main__":
         vis.grasp(action.grasp, scale=2.5, show_center=False, show_axis=True)
         vis.title("Planned grasp at depth {0:.3f}m with Q={1:.3f}".format(
             action.grasp.depth, action.q_value))
-        vis.show()
+        if save_path is None:
+             vis.show()
+        else:
+             vis.savefig(save_path)
