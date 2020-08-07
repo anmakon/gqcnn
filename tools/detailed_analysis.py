@@ -82,10 +82,22 @@ class GQCNN_Analyse():
 				else:
 					draw2.text((3,18), "Realtive depth %.2f" % depth_arr[j],fill=50,font=font)
 			if perturb_arr is not None:
+				ypos = 18
+				print(perturb_arr[j,1])
 				if perturb_arr[j,0] != 0:
-					draw2.text((3,18), "Grasp rotation: %.1f degree" % perturb_arr[j,0],fill=50,font=font)
-				elif perturb_arr[j,1] != 0:
-					draw2.text((3,18), "Grasp translation: %.1f pixel" % perturb_arr[j,1],fill=50,font=font)
+					draw2.text((3,ypos), "Grasp rotation: %.1f degree" % perturb_arr[j,0],fill=50,font=font)
+					ypos += 18
+				if perturb_arr[j,1] != 0:
+					draw2.text((3,ypos), "Grasp translationx: %.1f pixel" % perturb_arr[j,1],fill=50,font=font)
+					ypos += 18
+				if perturb_arr[j,2] != 0:
+					draw2.text((3,ypos), "Grasp translationy: %.1f pixel" % perturb_arr[j,2],fill=50,font=font)
+					ypos += 18
+				if perturb_arr[j,3] != 0:
+					draw2.text((3,ypos), "Grasp scale depth: %.1f" % perturb_arr[j,3],fill=50,font=font)
+					ypos += 18
+				if perturb_arr[j,4] != 0:
+					draw2.text((3,ypos), "Grasp scale x: %.1f" % perturb_arr[j,4],fill=50,font=font)
 		return image
 
 	def _plot_histograms(self,predictions,labels,savestring, output_dir):
@@ -327,24 +339,36 @@ class GQCNN_Analyse():
 		elif single_analysis:
 			# Analyse the error rates in regard to the grasping perturb in the images
 			perturb_levels = np.unique(perturb_arr)
-			_rot = len(np.unique(perturb_arr[:,0]))
-			_trans = len(np.unique(perturb_arr[:,1]))
-			_transy = len(np.unique(perturb_arr[:,2]))
-			if _rot >= 2 and _trans <= 1 and _transy <= 1:
+			_rot = np.count_nonzero(perturb_arr[:,0])
+			_trans = np.count_nonzero(perturb_arr[:,1])
+			_transy = np.count_nonzero(perturb_arr[:,2])
+			_scalez = np.count_nonzero(perturb_arr[:,3])
+			_scalex = np.count_nonzero(perturb_arr[:,4])
+			if _rot >= 1 and _trans == 0 and _transy == 0 and _scalez == 0 and _scalex == 0:
 				index = 0
 				perturbation = 'rotation'
-			elif _rot <= 1 and _trans >= 2 and _transy <=1:
+			elif _rot == 0 and _trans >= 1 and _transy ==0 and _scalez == 0 and _scalex == 0:
 				perturbation = 'translation'
 				index = 1
-			elif _rot <= 1 and _trans <= 1 and _transy >=2:
+			elif _rot == 0 and _trans == 0 and _transy >=1 and _scalez == 0 and _scalex == 0:
 				perturbation = 'translationy'
 				index = 2
+			elif _rot == 0 and _trans == 0 and _transy ==0 and _scalez >=1 and _scalex == 0:
+				perturbation = 'scale_height'
+				index = 3
+			elif _rot == 0 and _trans == 0 and _transy ==0 and _scalez == 0 and _scalex >= 1:
+				perturbation = 'scalex'
+				index = 4
 			else:
-				raise ValueError("Perturbation array includes at least two different perturbation types. Can't be handled. Abort.")
-				return None
+				perturbation = 'mixed'
+				index = 5
 			# Create new output dir for single file and perturbation mode
-			model_output_dir = os.path.join(model_output_dir, str(file_arr[0][0])+'_'+str(file_arr[0][1])+'_'+perturbation)
-			print("New output direction is: ",model_output_dir)
+			print(len(perturb_arr))
+			if len(perturb_arr) == 1:
+				print("New output direction is: ",model_output_dir)
+			else:		
+				model_output_dir = os.path.join(model_output_dir, str(file_arr[0][0])+'_'+str(file_arr[0][1])+'_'+perturbation)
+				print("New output direction is: ",model_output_dir)
 			if not os.path.exists(model_output_dir):
 				os.mkdir(model_output_dir)
 			# Set up new logger.
@@ -355,29 +379,47 @@ class GQCNN_Analyse():
 							global_log_file=self.verbose)
 			levels = len(perturb_arr)
 			abs_pred_errors = []
-			for current_perturb in perturb_levels:
-				pred = predictions[perturb_arr[:,index]==current_perturb]
-				lab = labels[perturb_arr[:,index]==current_perturb]
+			if levels == 1:
+				self.logger.info("Mixed perturbation. Translationx %.1f, Translationy %.1f, Rotation %.1f, Scale_height %.1f, Scale x %.1f" %
+						(perturb_arr[0][1],perturb_arr[0][2],perturb_arr[0][0],perturb_arr[0][3],perturb_arr[0][4]))
+				pred = predictions
+				lab = labels
 				res = BinaryClassificationResult(pred[:,1],lab)
-
-				if perturbation == 'rotation':
-					perturb_mode = 'rotation %.0f deg' % (current_perturb)
-				elif perturbation == 'translation':
-					perturb_mode = 'translation in x %.0f pixel' % (current_perturb)
-				elif perturbation == 'translationy':
-					perturb_mode = 'translation in y %.0f pixel' % (current_perturb)
-				pos_errors,neg_errors = self._calculate_prediction_errors(pred[:,1],lab)
-				# Only append positive errors if grasp was positive.
-				if pos_errors:
-					abs_pred_errors.append(pos_errors)
 				self.logger.info("Grasp %s Model %s prediction: %.3f" %
-					(perturb_mode, model_dir, pred[:,1]))
+					(perturbation, model_dir, pred[:,1]))
 				self.logger.info("Grasp %s Model %s error rate: %.3f" %
-					(perturb_mode, model_dir, res.error_rate))
+					(perturbation, model_dir, res.error_rate))
 				self.logger.info("Grasp %s Model %s loss: %.3f" %
-					(perturb_mode, model_dir, res.cross_entropy_loss))
-			if pos_errors:
-				self._plot_single_grasp_perturbations(perturb_levels,abs_pred_errors,model_output_dir,perturbation)
+					(perturbation, model_dir, res.cross_entropy_loss))
+				
+			else:
+				for current_perturb in perturb_levels:
+					pred = predictions[perturb_arr[:,index]==current_perturb]
+					lab = labels[perturb_arr[:,index]==current_perturb]
+					res = BinaryClassificationResult(pred[:,1],lab)
+
+					if perturbation == 'rotation':
+						perturb_mode = 'rotation %.0f deg' % (current_perturb)
+					elif perturbation == 'translation':
+						perturb_mode = 'translation in x %.0f pixel' % (current_perturb)
+					elif perturbation == 'translationy':
+						perturb_mode = 'translation in y %.0f pixel' % (current_perturb)
+					elif perturbation == 'scale_height':
+						perturb_mode = 'scaling depth by %.0f' % (current_perturb)
+					elif perturbation == 'scalex':
+						perturb_mode = 'scaling x by %.0f' % (current_perturb)
+					pos_errors,neg_errors = self._calculate_prediction_errors(pred[:,1],lab)
+					# Only append positive errors if grasp was positive.
+					if pos_errors:
+						abs_pred_errors.append(pos_errors)
+					self.logger.info("Grasp %s Model %s prediction: %.3f" %
+						(perturb_mode, model_dir, pred[:,1]))
+					self.logger.info("Grasp %s Model %s error rate: %.3f" %
+						(perturb_mode, model_dir, res.error_rate))
+					self.logger.info("Grasp %s Model %s loss: %.3f" %
+						(perturb_mode, model_dir, res.cross_entropy_loss))
+				if pos_errors:
+					self._plot_single_grasp_perturbations(perturb_levels,abs_pred_errors,model_output_dir,perturbation)
 		else:
 			levels = 1
 			self._plot_histograms(predictions[:,1],labels,'',model_output_dir)
@@ -428,7 +470,7 @@ class GQCNN_Analyse():
 				image.save(os.path.join(model_output_dir,"Example_%03d.png" % (cnt)))
 		if single_analysis:
 			print("Plotting depth image")
-			j = int(len(image_arr)/2)+1
+			j = int(len(image_arr)/2)
 			#Plot pure depth image without prediction labeling.
 			image = self._plot_grasp(image_arr[j],width_arr[j],results,j,plt_results = False)
 			image.save(os.path.join(model_output_dir,"Depth_image.png"))
