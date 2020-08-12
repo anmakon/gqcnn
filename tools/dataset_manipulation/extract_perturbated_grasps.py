@@ -158,9 +158,26 @@ class Grasp_perturbation():
 	def _scale_x(self,depth_tf,factor):
 		mid = int(32*factor/2)
 		crop_area = (mid-16,0,mid+16,32)
+		table = np.amax(depth_tf[:,:,0])
 		im = Image.fromarray(depth_tf[:,:,0]).resize((int(32*factor),32),resample=Image.BILINEAR)
-		new_im = im.crop(crop_area)
-		depth_tf_scaled = [[[point] for point in row] for row in np.asarray(new_im)]
+		if factor >1:
+			new_im = im.crop(crop_area)
+			depth_tf_scaled = [[[point] for point in row] for row in np.asarray(new_im)]
+		else:
+			new_im = im
+			depth_tf_scaled = []
+			for row in np.asarray(new_im):
+				pixels = 32-len(row)
+				rows = []
+				for pixel in range(0,int(pixels/2)):
+					rows.append([table])
+				for pixel in row:
+					rows.append([pixel])
+				if pixels %2 != 0:
+					pixels += 1
+				for pixel in range(0,int(pixels/2)):
+					rows.append([table])
+				depth_tf_scaled.append(rows)
 		return depth_tf_scaled
 
 	def _add_translation(self,depth_tf,trans,y=False):

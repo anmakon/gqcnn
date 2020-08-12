@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 from PIL import Image,ImageDraw,ImageFont,ImageColor
 import json
 from autolab_core import YamlConfig,Logger,BinaryClassificationResult,Point
+from collections import defaultdict
+import pandas as pd
+import csv
 
 import os
 import argparse
@@ -23,7 +26,7 @@ class GQCNN_Analyse():
 		self.metric_thresh = 0.002    # Change metric threshold here if needed!
 		self.verbose = verbose
 		plt.switch_backend(plot_backend)
-		self.num_images = 120		# Amount of images for plotting. Set to None if you want to plot all images
+		self.num_images = None		# Amount of images for plotting. Set to None if you want to plot all images
 		self.model = model
 		self.dset = dset
 
@@ -230,6 +233,14 @@ class GQCNN_Analyse():
 		result = self._run_prediction(model_dir, output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis,single_analysis) 
 
 		
+	def _export_object_analysis(self,true_pos,false_neg,false_pos,true_neg,output_dir):
+		with open(output_dir+"/object_analysis.csv",'w',newline='') as csvfile:
+			writer = csv.writer(csvfile,delimiter= ',')
+			writer.writerow(['Object name','True positive','True negative','False positive','False negative'])
+			for key in true_pos.keys():
+				writer.writerow([key,true_pos[key],true_neg[key],false_pos[key],false_neg[key]])
+		return None
+		
 
 	def _run_prediction(self,model_dir,model_output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis,single_analysis):
 		"""Predict the outcome of the file for a single model."""
@@ -260,10 +271,8 @@ class GQCNN_Analyse():
 			image_arr,pose_arr,labels,width_arr,file_arr,perturb_arr = self._read_data(data_dir,perturb=True)
 		elif single_analysis:
 			image_arr,pose_arr,labels,width_arr,file_arr,perturb_arr = self._read_data(data_dir,perturb=True)
-
-				
 		else:
-			image_arr,pose_arr,labels,width_arr,file_arr = self._read_data(data_dir)
+			image_arr,pose_arr,labels,width_arr,file_arr,obj_arr = self._read_data(data_dir)
 		# Predict outcomes
 		predictions = gqcnn.predict(image_arr,pose_arr)
 		gqcnn.close_session()
@@ -428,6 +437,32 @@ class GQCNN_Analyse():
 			self.logger.info("Model %s loss: %.3f" %
 				(model_dir, results.cross_entropy_loss))
 
+			if obj_arr is not None:
+				print(type(obj_arr))
+				unique = np.unique(obj_arr).tolist()
+				object_label = pd.read_csv("./data/training/Cornell/original/z.txt",sep=" ",header=None,usecols=[1,2]).drop_duplicates().to_numpy()
+				true_pos = dict() 
+				false_neg = dict()
+				false_pos = dict()
+				true_neg = dict()
+				for obj in unique:
+					true_pos[object_label[obj,1]] = 0
+					false_pos[object_label[obj,1]] = 0
+					true_neg[object_label[obj,1]] = 0
+					false_neg[object_label[obj,1]] = 0
+					
+				for obj, pred, label in zip(obj_arr,predictions[:,1],labels):
+					if label == 1 and pred >= 0.5:
+						true_pos[object_label[obj,1]] += 1
+					elif label == 1 and pred < 0.5:
+						false_neg[object_label[obj,1]] += 1
+					elif label == 0 and pred >= 0.5:
+						false_pos[object_label[obj,1]] += 1
+					elif label == 0 and pred < 0.5:
+						true_neg[object_label[obj,1]] += 1
+				print(true_pos)
+				self._export_object_analysis(true_pos,false_neg,false_pos,true_neg,model_output_dir)
+
 		# Log the ratios
 		pos_lab = labels[labels==1]
 		neg_lab = labels[labels==0]
@@ -485,6 +520,7 @@ class GQCNN_Analyse():
 		predicting on bunch of images at a time."""
 
 		read_file_arr = True
+		read_obj_arr = True
 		if 'Cornell' in data_dir:
 			self.dset = 'Cornell'
 		elif 'dexnet' in data_dir or 'DexNet' in data_dir or 'Dexnet' in data_dir:
@@ -500,6 +536,7 @@ class GQCNN_Analyse():
 		file_arr = np.empty([])
 		noise_arr = np.empty([])
 		depth_arr = np.empty([])
+		obj_arr = np.empty([])
 		labels = []
 		numbers = [string[-9:-4] for string in files if '.npz' in string]
 		counter = len(list(set(numbers)))
@@ -509,6 +546,7 @@ class GQCNN_Analyse():
 		image_arr= np.load(data_dir+"depth_ims_tf_table_"+filenumber+".npz")['arr_0']
 		poses = np.load(data_dir+"hand_poses_"+filenumber+".npz")['arr_0']
 		metric_arr = np.load(data_dir+"robust_ferrari_canny_"+filenumber+".npz")['arr_0']
+
 		pose_arr = poses[:,2:3]
 		width_arr = poses[:,-1]
 		try:
@@ -517,6 +555,11 @@ class GQCNN_Analyse():
 			print("Could not load files_00000.npz")
 			print("Will ignore files_XXXXX.npz files")
 			read_file_arr = False
+		try:
+			obj_arr = np.load(data_dir+"object_labels_"+filenumber+".npz")['arr_0']
+		except:
+			print("Could not load object labels")
+			read_obj_arr = False
 		label = 1* (metric_arr > self.metric_thresh)
 		labels = label.astype(np.uint8)
 		for i in range(1,counter):
@@ -537,6 +580,8 @@ class GQCNN_Analyse():
 			width_arr = np.concatenate((width_arr,poses[:,-1]))
 			label = 1* (metrics > self.metric_thresh)
 			labels = np.append(labels,label.astype(np.uint8))
+			if read_obj_arr:
+				obj_arr = np.concatenate((obj_arr,np.load(data_dir+"object_labels_"+filenumber+".npz")['arr_0']))
 		if noise:
 			# Add the noise levels, if analysing noise
 			noise_arr = np.load(data_dir+"noise_and_tilting_00000.npz")['arr_0']
@@ -577,7 +622,10 @@ class GQCNN_Analyse():
 			#print("Shape pose_arr: ",pose_arr.shape)
 			#print("Shape image_arr: ",image_arr.shape)
 			return image_arr,pose_arr,labels,width_arr,file_arr,perturb_arr
-		return image_arr,pose_arr,labels,width_arr,file_arr
+		if read_obj_arr:
+			return image_arr,pose_arr,labels,width_arr,file_arr,obj_arr
+		else:
+			return image_arr,pose_arr,labels,width_arr,file_arr,None
 
 
 if __name__ == "__main__":

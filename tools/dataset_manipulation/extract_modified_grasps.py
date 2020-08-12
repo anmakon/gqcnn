@@ -18,6 +18,7 @@ class Modification():
 		self.metric_arr = []
 		self.noise_arr = []
 		self.depth_arr = []
+		self.object_arr = []
 		self.noise = False
 		self.depth = False
 		self.counter = 0
@@ -63,11 +64,13 @@ class Modification():
 		np.savez(self.export_path+"hand_poses_"+count_string,self.pose_arr)
 		np.savez(self.export_path+"robust_ferrari_canny_"+count_string,self.metric_arr)
 		np.savez(self.export_path+"files_"+count_string,self.file_arr)
+		np.savez(self.export_path+"object_labels_"+count_string,self.object_arr)
 
 		self.metric_arr = []
 		self.image_arr = []
 		self.pose_arr = []
 		self.file_arr = []
+		self.object_arr = []
 
 		if self.noise:
 			np.savez(self.export_path+"noise_and_tilting_"+count_string,self.noise_arr)
@@ -150,7 +153,7 @@ class Modification():
 	def _choose_file(self):
 		if self.csv:
 			tensors,arrays = self._read_csv_file()
-			self.export_path = self.export_path[0:-1]+'_'+self.csv_object+'/'
+			self.export_path = self.export_path[0:-1]+self.csv_object+'/'
 		if not os.path.exists(self.export_path):
 			os.mkdir(self.export_path)
 		print("Save files to ",self.export_path)
@@ -199,11 +202,13 @@ class Modification():
 		depth_ims = np.load(self.data_path+"depth_ims_tf_table_"+filenumber+".npz")['arr_0'][array]
 		pose = np.load(self.data_path+"hand_poses_"+filenumber+".npz")['arr_0'][array]
 		metrics = np.load(self.data_path+"robust_ferrari_canny_"+filenumber+".npz")['arr_0'][array]
+		object_label = np.load(self.data_path+"object_labels_"+filenumber+".npz")['arr_0'][array]
 		files = [tensor,array]
 		if self.noise:
 			for std in [0,0.0011]:
 				self.image_arr.append(np.random.normal(scale=std,size=(32,32,1))+depth_ims)
 				self.noise_arr.append([std,0])
+				self.object_arr.append(object_label)
 				self.pose_arr.append(pose)
 				self.metric_arr.append(metrics)
 				self.file_arr.append(files)
@@ -211,6 +216,7 @@ class Modification():
 			self.image_arr.append(depth_ims)
 			self.metric_arr.append(metrics)
 			self.file_arr.append(files)
+			self.object_arr.append(object_label)
 			self.pose_arr.append(pose.copy())
 			self.depth_arr.append(-1)
 			for relation in [0,0.5,1.0]:
@@ -225,6 +231,7 @@ class Modification():
 			self.image_arr.append(depth_ims)
 			self.pose_arr.append(pose)
 			self.metric_arr.append(metrics)
+			self.object_arr.append(object_label)
 			self.file_arr.append(files)
 
 		if len(self.metric_arr) >= self.images_per_file:
