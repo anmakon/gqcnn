@@ -10,6 +10,8 @@ from PIL import Image
 
 class Grasp_perturbation():
 	def __init__(self,dset,selection,tensor=None,array=None,perturb=1,value=None):
+		self.translation_duplicates = True
+
 		self.image_arr = []
 		self.pose_arr = []
 		self.file_arr = []
@@ -18,12 +20,13 @@ class Grasp_perturbation():
 
 		if dset == 'dexnet_2_tensor':
 			out = 'DexNet'
+			self.num_grasps = 10000
 		else:
 			out = 'Cornell'
+			self.num_grasps = 1000
 
 		self.images_per_file = 500
-		self.num_grasps = 1000
-		self.ratio_pos = 1
+		self.ratio_pos = 0.5
 		
 		self.value = value # Shows value to rotate/translate pixel if not None
 		self.perturbation = perturb  # 0 - rotation; 1 - translation x; 2 - translation y
@@ -38,8 +41,10 @@ class Grasp_perturbation():
 		self.perturb_step = 1 
 		if self.perturbation == 1 or self.perturbation == 2:
 			self.steps = 10
+			self.perturb_step = 2
 		elif self.perturbation == 0:
-			self.steps = 60
+			self.steps = 40
+			self.perturb_step = 5 
 
 		self.output_path = "./data/training/Subset_datasets/"+out+"_"+mode+"Perturb/"
 		self.data_path = "./data/training/"+dset+"/tensors/"		
@@ -47,7 +52,7 @@ class Grasp_perturbation():
 		split = "./data/training/"+dset+"/splits/image_wise/train_indices.npz"
 		self.split = np.load(split)['arr_0']
 		
-		self.filter_training = False 
+		self.filter_training = True 
 
 		self.manual_input = False 
 		self.random = False
@@ -56,6 +61,7 @@ class Grasp_perturbation():
 		if tensor is not None and array is not None:
 			self.manual_input= True
 			self.output_path = "./data/training/Subset_datasets/"+out+"_SinglePerturb/"
+			print("Saving files to: ",self.output_path)
 			self.main(tensor,array)
 			return None
 		elif selection == 'random':
@@ -64,6 +70,7 @@ class Grasp_perturbation():
 			self.manual_input = True
 		elif selection == 'csv':
 			self.csv_input = True
+		print("Saving files to: ",self.output_path)
 		self.main()
 
 	def save_rest(self,pose,metric,files):
@@ -184,13 +191,26 @@ class Grasp_perturbation():
 		"""Translate the grasping pose in x or y direction.
 		Fill the new pixel values with the maximum depth (should
 		represent the table)"""
-		table = np.amax(depth_tf[:,:,0])
-		im = Image.fromarray(depth_tf[:,:,0])
-		if not y:
-			new_im = im.transform(im.size,method = Image.AFFINE,data=(1,0,trans,0,1,0),fillcolor=table)
+		if self.translation_duplicates:
+			filling = np.inf # Placeholder
 		else:
-			new_im = im.transform(im.size,method = Image.AFFINE,data=(1,0,0,0,1,trans),fillcolor=table)
-		depth_tf_trans = [[[point] for point in row] for row in np.asarray(new_im)]
+			filling = np.amax(depth_tf[:,:,0]) # Table height
+		im = Image.fromarray(depth_tf[:,:,0])
+		if y:
+			translation = (1,0,0,0,1,trans)
+		else:
+			translation = (1,0,trans,0,1,0)
+		new_im = im.transform(im.size,method = Image.AFFINE,data=translation,fillcolor=filling)
+		depth_tf_trans = []
+		for row in np.asarray(new_im):
+			new_row = []
+			for point in row:
+				new_row.append([point])
+			if np.inf in row and y:
+				#Duplicate
+				depth_tf_trans.append(depth_tf_trans[-1])	
+			else:
+				depth_tf_trans.append(new_row)
 		return depth_tf_trans
 
 	def main(self,given_tensor=None,given_array=None):
@@ -312,7 +332,6 @@ class Grasp_perturbation():
 			perturb = [rot,trans_x,trans_y,scale_height,scale_x]
 			
 		self.image_arr.append(new_depth_ims)
-		print(perturb)
 		self.perturb_arr.append(perturb)
 		return pose 
 

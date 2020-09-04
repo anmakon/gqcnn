@@ -16,7 +16,7 @@ The plots can be configured for a white or a black background for slides.
 
 class Absolute_Prediction_Error():
 	def __init__(self):
-		self.black_background = True # Set to false if your slides have a white background
+		self.black_background = False # Set to false if your slides have a white background
 		return None
 
 	def create_errors(self,data_dir,output_dir):
@@ -75,37 +75,43 @@ class Absolute_Prediction_Error():
 
 		plt.hist(self.train_error_pos,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
 		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
-		plt.title("Error on successful training grasps",fontsize=18)
+		plt.title("Error on positive training grasps",fontsize=18)
+		plt.axvline(x=0.5,color='red')
 		plt.savefig(output_dir+"err_pos_train",transparent=True)
 		plt.close()
 
 		plt.hist(self.train_error_neg,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
 		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
-		plt.title("Error on unsuccessful training grasps",fontsize=18)
+		plt.title("Error on negative training grasps",fontsize=18)
+		plt.axvline(x=0.5,color='red')
 		plt.savefig(output_dir+"err_neg_train",transparent=True)
 		plt.close()
 
 		plt.hist(self.val_error_pos,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
 		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
-		plt.title("Error on successful validation grasps",fontsize=18)
+		plt.title("Error on positive validation grasps",fontsize=18)
+		plt.axvline(x=0.5,color='red')
 		plt.savefig(output_dir+"err_pos_val",transparent=True)
 		plt.close()
 
 		plt.hist(self.val_error_neg,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
 		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
-		plt.title("Error on unsuccessful validation grasps",fontsize=18)
+		plt.title("Error on negative validation grasps",fontsize=18)
+		plt.axvline(x=0.5,color='red')
 		plt.savefig(output_dir+"err_neg_val",transparent=True)
 		plt.close()
 
 		plt.hist(self.all_error_pos,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
 		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
-		plt.title("Error on successful grasps",fontsize=18)
+		plt.title("Error on positive grasps",fontsize=18)
+		plt.axvline(x=0.5,color='red')
 		plt.savefig(output_dir+"err_pos_all",transparent=True)
 		plt.close()
 
 		plt.hist(self.all_error_neg,bins=np.arange(0,1+binwidth,binwidth),color=hist_color)
 		plt.xlabel("Absolute Prediction Error",color=line_color,fontsize=14)
-		plt.title("Error on unsuccessful grasps",fontsize=18)
+		plt.title("Error on negative grasps",fontsize=18)
+		plt.axvline(x=0.5,color='red')
 		plt.savefig(output_dir+"err_neg_all",transparent=True)
 		plt.close()
 

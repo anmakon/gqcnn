@@ -27,6 +27,7 @@ if dset == 'Cornell' or dset == 'cornell':
 	data_path = "./data/training/Cornell/tensors/"
 elif dset == 'dexnet' or dset == 'Dexnet' or dset == 'DexNet':
 	data_path = "./data/training/dexnet_2_tensor/tensors/"
+	data_path = "/media/psf/Home/Documents/Grasping_Research/Datasets/dexnet_2_tensor/tensors/"
 
 #depth_im = np.load(data_path+'depth_ims_raw_table_'+filecnt+'.npz')
 #print('depth_ims_raw_table shape:',depth_im.files)
@@ -38,10 +39,10 @@ depth_im_table = np.load(data_path+'depth_ims_tf_table_'+filecnt+'.npz')
 #with np.printoptions(threshold=np.inf):
 #	print('depth_ims_tf_table arr_0', depth_im_table['arr_0'][array])
 
-with open(export_path+filecnt+"_"+str(array)+".csv",'w',newline='') as csvfile:
-	writer=csv.writer(csvfile,delimiter=',')
-	for row in depth_im_table['arr_0'][array][:,:,0]:
-		writer.writerow(row)
+#with open(export_path+filecnt+"_"+str(array)+".csv",'w',newline='') as csvfile:
+#	writer=csv.writer(csvfile,delimiter=',')
+#	for row in depth_im_table['arr_0'][array][:,:,0]:
+#		writer.writerow(row)
 
 #binary_im_table = np.load(data_path+'binary_ims_tf_table_'+filecnt+'.npz')
 #print('binary_ims_tf_table shape:',binary_im_table.files)
@@ -59,14 +60,14 @@ with open(export_path+filecnt+"_"+str(array)+".csv",'w',newline='') as csvfile:
 #print('robust_ferrari_canny shape:',grasp_metric.files)
 #print('robust_ferrari_canny arr_0:',grasp_metric['arr_0'])
 
-#object_labels = np.load(data_path+'object_labels_'+filecnt+'.npz')
-#print('object labels shape:',object_labels.files)
-#print('object labels arr_0:', object_labels['arr_0'][array])
+object_labels = np.load(data_path+'object_labels_'+filecnt+'.npz')
+print('object labels shape:',object_labels.files)
+print('object labels arr_0:', object_labels['arr_0'][array])
 
 #pose_labels = np.load(data_path+'pose_labels_'+filecnt+'.npz')
 #print('pose labels shape:',pose_labels.files)
 #print('pose labels arr_0:', pose_labels['arr_0'][array])
 
-#image_labels = np.load(data_path+'image_labels_'+filecnt+'.npz')
-#print('image labels shape:',image_labels.files)
-#print('image labels arr_0:', image_labels['arr_0'])
+image_labels = np.load(data_path+'image_labels_'+filecnt+'.npz')
+print('image labels shape:',image_labels.files)
+print('image labels arr_0:', image_labels['arr_0'])
