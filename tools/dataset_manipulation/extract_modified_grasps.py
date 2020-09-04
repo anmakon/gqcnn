@@ -9,7 +9,7 @@ import argparse
 # training data, manually or from csv files. 
 
 class Modification():
-	def __init__(self,selection,Cornell=False):
+	def __init__(self,selection,Cornell=False,counter=None,path=None,tensor=None,array=None):
 
 		# "Preallocate" variables
 		self.image_arr = []
@@ -19,38 +19,54 @@ class Modification():
 		self.noise_arr = []
 		self.depth_arr = []
 		self.object_arr = []
+		self.identifier_arr = []
 		self.noise = False
 		self.depth = False
-		self.counter = 0
+		if counter is None:
+			self.counter=0
+		else:
+			self.counter=counter
 
 		# Set paths
 		if Cornell ==True:
+			self.identifier = 0
 			self.export_path = "./data/training/Subset_datasets/Cornell_"
 			self.data_path = "./data/training/Cornell/tensors/"
-			self.csv_dir = "./data/training/csv_files/"
-			split = "./data/training/Cornell/splits/image_wise/train_indices.npz"
+			split = "./data/training/Cornell/splits/image_wise/val_indices.npz"
+			self.num_images = 3000
 
 		else:
+			self.identifier = 1
 			self.export_path = "./data/training/Subset_datasets/DexNet_"
-			self.data_path = "./data/training/dexnet_2_tensor/tensors/"
-			self.csv_dir = "./data/training/csv_files/"
-			split = "./data/training/dexnet_2_tensor/splits/image_wise/train_indices.npz"
+			self.data_path = "/media/psf/Home/Documents/Grasping_Research/Datasets/dexnet_2_tensor/tensors/"
+			split = "/media/psf/Home/Documents/Grasping_Research/Datasets/dexnet_2_tensor/splits/image_wise/val_indices.npz"
+			self.num_images = 3000
+
+		if path is not None:
+			self.export_path = "./data/training/Subset_datasets/"+path
+
+		self.csv_dir = "./data/training/csv_files/"
 		self.split = np.load(split)['arr_0']
 
 		self.images_per_file = 500
-		self.num_images = 500
-		self.ratio_pos = 0.5
+		self.ratio_pos = 0.5 
 
 		# Set selection type
 		self.random = False
 		self.manual = False
 		self.csv = False
 		self.filter_training = True
+		
+		self.tensor = None
+		self.array = None
 
 		if selection == 'random' or selection == 'Random':
 			self.random = True
 		elif selection == 'manual' or selection == 'Manual':
 			self.manual = True
+			if tensor is not None and array is not None:
+				self.tensor = tensor
+				self.array = array
 		elif selection == 'csv':
 			self.csv = True
 
@@ -65,12 +81,14 @@ class Modification():
 		np.savez(self.export_path+"robust_ferrari_canny_"+count_string,self.metric_arr)
 		np.savez(self.export_path+"files_"+count_string,self.file_arr)
 		np.savez(self.export_path+"object_labels_"+count_string,self.object_arr)
+		np.savez(self.export_path+"identifier_"+count_string,self.identifier_arr)
 
 		self.metric_arr = []
 		self.image_arr = []
 		self.pose_arr = []
 		self.file_arr = []
 		self.object_arr = []
+		self.identifier_arr = []
 
 		if self.noise:
 			np.savez(self.export_path+"noise_and_tilting_"+count_string,self.noise_arr)
@@ -91,8 +109,8 @@ class Modification():
 
 	def _get_artificial_depth(self,depth_table,value):
 		table = depth_table.max()
-		maximum = depth_table.min()
-		depth = table - (table-maximum)*value
+		closest_point = depth_table.min()
+		depth = table - (table-closest_point)*value
 		return depth
 
 	def _read_csv_file(self):
@@ -118,17 +136,16 @@ class Modification():
 				else:
 					for sep_file in list(range(row[0],row[2])):
 						if sep_file == row[0]:
-							images = 1000-row[1]
+							images = self.num_images-row[1]
 							filenumber.extend([row[0]]*images)
-							array.extend(list(range(row[1],1000)))
+							array.extend(list(range(row[1],self.num_images)))
 						elif sep_file == row[2]:
 							images = row[3]
 							filenumber.extend([row[3]]*images)
 							array.extend(list(range(0,row[3])))
 						else:
-							images = 1000
-							filenumber.extend([sep_file]*images)
-							array.extend(list(range(0,1000)))
+							filenumber.extend([sep_file]*self.num_images)
+							array.extend(list(range(0,self.num_images)))
 		print("Read in all the images")
 		self.csv_object = filename.split('_')[-1].split('.')[0]
 		return filenumber, array
@@ -148,7 +165,7 @@ class Modification():
 	def no_modification(self):
 		self.export_path += '/'
 		self._choose_file()
-		return None
+		return self.counter
 
 	def _choose_file(self):
 		if self.csv:
@@ -168,8 +185,12 @@ class Modification():
 				print("Saved final file")
 				return None
 			if self.manual:
-				tensor = int(input("Input the file number: "))
-				array = int(input("Input the array position: "))
+				if self.tensor is not None and self.array is not None:
+					tensor = self.tensor
+					array = self.array
+				else:
+					tensor = int(input("Input the file number: "))
+					array = int(input("Input the array position: "))
 			if self.random:
 				if 'dexnet' in self.data_path:
 					array = np.random.randint(low=0,high=999)
@@ -180,7 +201,7 @@ class Modification():
 				else:
 					raise ValueError("Neither Cornell, nor dexnet in pathway. Abort")
 					break
-				if self.filter_training and tensor*1000+array in self.split:
+				if self.filter_training and tensor*1000+array not in self.split:
 					continue
 			filenumber = ("{0:05d}").format(tensor)
 			metrics = np.load(self.data_path+"robust_ferrari_canny_"+filenumber+".npz")['arr_0'][array]
@@ -188,9 +209,13 @@ class Modification():
 				continue
 			# Store grasp, add modifications
 			self._add_modification(tensor,array)
-			if self.manual and input("Save file?")=='y':
-				self._save_files(self.counter)
-				return None	
+			if self.manual:
+				if self.tensor is not None and self.array is not None:
+					self._save_files(self.counter)
+					return None
+				elif input("Save file?")=='y':
+					self._save_files(self.counter)
+					return None	
 			if self.random and self.num_images <= self.counter*self.images_per_file:
 				if len(self.metric_arr) > 0:
 					self._save_files(self.counter)
@@ -199,7 +224,10 @@ class Modification():
 
 	def _add_modification(self,tensor,array):
 		filenumber = ("{0:05d}").format(tensor)	
-		depth_ims = np.load(self.data_path+"depth_ims_tf_table_"+filenumber+".npz")['arr_0'][array]
+		try:
+			depth_ims = np.load(self.data_path+"depth_ims_tf_table_"+filenumber+".npz")['arr_0'][array]
+		except:
+			raise IndexError("Not available with filenumber %s, array %d"%(filenumber,array))
 		pose = np.load(self.data_path+"hand_poses_"+filenumber+".npz")['arr_0'][array]
 		metrics = np.load(self.data_path+"robust_ferrari_canny_"+filenumber+".npz")['arr_0'][array]
 		object_label = np.load(self.data_path+"object_labels_"+filenumber+".npz")['arr_0'][array]
@@ -212,6 +240,7 @@ class Modification():
 				self.pose_arr.append(pose)
 				self.metric_arr.append(metrics)
 				self.file_arr.append(files)
+				self.identifier_arr.append(self.identifier)
 		elif self.depth:
 			self.image_arr.append(depth_ims)
 			self.metric_arr.append(metrics)
@@ -219,6 +248,7 @@ class Modification():
 			self.object_arr.append(object_label)
 			self.pose_arr.append(pose.copy())
 			self.depth_arr.append(-1)
+			self.identifier_arr.append(self.identifier)
 			for relation in [0,0.5,1.0]:
 				relative_depth = self._get_artificial_depth(depth_ims,relation)
 				pose[2] = relative_depth	
@@ -227,12 +257,14 @@ class Modification():
 				self.file_arr.append(files)
 				self.pose_arr.append(pose.copy())
 				self.depth_arr.append(relation)
+				self.identifier_arr.append(self.identifier)
 		else:
 			self.image_arr.append(depth_ims)
 			self.pose_arr.append(pose)
 			self.metric_arr.append(metrics)
 			self.object_arr.append(object_label)
 			self.file_arr.append(files)
+			self.identifier_arr.append(self.identifier)
 
 		if len(self.metric_arr) >= self.images_per_file:
 			self._save_files(self.counter)
@@ -254,6 +286,18 @@ if __name__ == "__main__":
 				type = str,
 				default = 'random',
 				help = "Selection process. 'random', 'manual' or 'csv' possible.")
+	parser.add_argument("--mixture",
+				type=bool,
+				default=False,
+				help = "Take Cornell and DexNet-2.0 dataset")
+	parser.add_argument("--file",
+				type = int,
+				default = None,
+				help = "File to take for manual selection")
+	parser.add_argument("--array",
+				type = int,
+				default = None,
+				help = "Array to take for manual selection")
 	parser.add_argument("--Cornell",
 				type = bool,
 				default = False,
@@ -261,12 +305,20 @@ if __name__ == "__main__":
 	args = parser.parse_args()
 	selection = args.selection
 	cornell = args.Cornell
-	modifier = Modification(selection,cornell)
-	if args.noise:
-		modifier.modify_noise()
-	elif args.depth:
-		modifier.modify_depth()
-	else:
+	mixture = args.mixture
+	tensor = args.file
+	array = args.array
+	if mixture:
+		# Get mixture of DexNet and Cornell data
+		modifier = Modification(selection,True,path="Both")
+		counter = modifier.no_modification()
+		modifier = Modification(selection,False,counter=counter,path="Both")
 		modifier.no_modification()
-
-
+	else:	
+		modifier = Modification(selection,cornell,tensor=tensor,array=array)
+		if args.noise:
+			modifier.modify_noise()
+		elif args.depth:
+			modifier.modify_depth()
+		else:
+			modifier.no_modification()

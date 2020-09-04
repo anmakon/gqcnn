@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 from PIL import Image,ImageDraw,ImageFont,ImageColor
 import json
@@ -10,6 +11,7 @@ import csv
 
 import os
 import argparse
+import sklearn
 
 from gqcnn.model import get_gqcnn_model
 from gqcnn.grasping import Grasp2D
@@ -26,7 +28,7 @@ class GQCNN_Analyse():
 		self.metric_thresh = 0.002    # Change metric threshold here if needed!
 		self.verbose = verbose
 		plt.switch_backend(plot_backend)
-		self.num_images = None		# Amount of images for plotting. Set to None if you want to plot all images
+		self.num_images = 100		# Amount of images for plotting. Set to None if you want to plot all images
 		self.model = model
 		self.dset = dset
 
@@ -198,6 +200,132 @@ class GQCNN_Analyse():
 		plt.savefig(output_dir+"/Grasp_"+mode+"_err.png")
 		plt.close()
 
+	def visualise(self,model_dir,output_dir,data_dir):
+
+		# Determine model name
+		model_name = ""
+		model_root = model_dir
+		while model_name == "" and model_root != "":
+			model_root, model_name = os.path.split(model_root)
+		
+		output_dir = os.path.join(output_dir,"Visualisation/")
+		if not os.path.exists(output_dir):
+			os.mkdir(output_dir)
+
+		# Read in model config.
+		model_config_filename = os.path.join(model_dir,"config.json")
+		with open(model_config_filename) as data_file:
+			model_config = json.load(data_file)
+
+		# Set up logger
+		self.logger = Logger.get_logger(self.__class__.__name__,
+						log_file=os.path.join(
+							output_dir, "analysis.log"),
+						silence=(not self.verbose),
+						global_log_file=self.verbose)
+
+		self.logger.info("Analyzing model %s" % (model_name))
+		self.logger.info("Saving output to %s" % (output_dir))
+		mixture = False
+
+		if "Cornell" in model_dir:
+			model_name = "Cornell"
+		elif "DexNet" in model_dir:
+			model_name = "DexNet"
+
+		if "Cornell" in data_dir:
+			data_name = "Cornell"
+		elif "DexNet" in data_dir:
+			data_name = "DexNet"
+		elif "Both" in data_dir:
+			data_name = "mixed"
+			mixture = True
+
+		# Load model.
+		self.logger.info("Loading model %s" % (model_dir))
+		log_file = None
+		for handler in self.logger.handlers:
+			if isinstance(handler, logging.FileHandler):
+				log_file = handler.baseFilename
+		gqcnn = get_gqcnn_model(verbose=self.verbose).load(
+			model_dir, verbose=self.verbose, log_file=log_file)
+		gqcnn.open_session()
+		gripper_mode = gqcnn.gripper_mode
+		angular_bins = gqcnn.angular_bins
+
+		if mixture:
+			image_arr,pose_arr,labels,width_arr,file_arr,obj_arr,identity_arr = self._read_data(data_dir,mixture=True)
+		else:
+			image_arr,pose_arr,labels,width_arr,file_arr,obj_arr = self._read_data(data_dir)
+		print("Object arr: ",obj_arr)
+		# Predict outcomes
+		predictions = gqcnn.predict(image_arr,pose_arr)
+
+		if predictions.shape[1] == 1:
+			print("Only 1 image given. No t-SNE analysis of network possible")
+		else:
+			# Setting colors and labels
+			color = []
+			monotone = False
+			if mixture:
+				for label,identity in zip(labels,identity_arr):
+					if identity == 0:
+						#Cornell
+						if label == 0:
+							#negative
+							color.append('#FF8000')
+						else:
+							#positive
+							color.append('#2D702F')
+						#DexNet
+						if label == 0:
+							#negative
+							color.append('#FF0404')
+						else:
+							#positive
+							color.append('#23C328')
+				if len(np.unique(labels)) == 1:
+					monotone = True
+					if labels[0] == 0:
+						data_name += " negatives"
+						pop_a = mpatches.Patch(color='#FF8000', label='Negative Cornell')
+						pop_b = mpatches.Patch(color='#FF0404', label='Negative DexNet')
+					else:
+						data_name += " positives"
+						pop_a = mpatches.Patch(color='#2D702F', label='Positive Cornell')
+						pop_b = mpatches.Patch(color='#23C328', label='Positive DexNet')
+				else:
+					pop_a = mpatches.Patch(color='#FF8000', label='Negative Cornell')
+					pop_b = mpatches.Patch(color='#FF0404', label='Negative DexNet')
+					pop_c = mpatches.Patch(color='#2D702F', label='Positive Cornell')
+					pop_d = mpatches.Patch(color='#23C328', label='Positive DexNet')
+			else:
+				color = ['r' if truth == 0 else 'g' for truth in labels]
+				pop_a = mpatches.Patch(color='r', label='Negative grasp')
+				pop_b = mpatches.Patch(color='g', label='Positive grasp')
+
+			#t-SNE
+			tsne_out = sklearn.manifold.TSNE(n_components=2).fit_transform(predictions)
+			plt.scatter(tsne_out[:,0],tsne_out[:,1],marker='o',c=color)
+			if mixture and not monotone:
+				plt.legend(handles=[pop_a,pop_b,pop_c,pop_d])
+			else:
+				plt.legend(handles=[pop_a,pop_b])
+			plt.title("TSNE output of %s data on a GQCNN trained on %s" %(data_name,model_name))
+			plt.savefig(output_dir+"/"+model_name+"_model_"+data_name+"_data_TSNE.png")
+			plt.close()
+			
+			#PCA
+			pca_out = sklearn.decomposition.PCA(n_components=2).fit_transform(predictions)
+			plt.scatter(pca_out[:,0],pca_out[:,1],marker='o',c=color)
+			plt.title("PCA output of %s data on a GQCNN trained on %s" %(data_name,model_name))
+			if mixture and not monotone:
+				plt.legend(handles=[pop_a,pop_b,pop_c,pop_d])
+			else:
+				plt.legend(handles=[pop_a,pop_b])
+			plt.savefig(output_dir+"/"+model_name+"_model_"+data_name+"_data_PCA.png")
+			plt.close()
+
 	def run_analysis(self, model_dir,output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis,single_analysis):
 
 		# Determine model name
@@ -312,9 +440,14 @@ class GQCNN_Analyse():
 		elif perturb_analysis:
 			# Analyse the error rates in regard to the grasping perturb in the images
 			perturb_levels = np.unique(perturb_arr)
+			print("Perturb levels: ",perturb_levels)
 			_rot = len(np.unique(perturb_arr[:,0]))
 			_trans = len(np.unique(perturb_arr[:,1]))
-			_transy = len(np.unique(perturb_arr[:,2]))
+			try:
+				_transy = len(np.unique(perturb_arr[:,2]))
+			except:
+				_transy = 0
+				print("No translation in y included")
 			if _rot >= 2 and _trans <= 1 and _transy <= 1:
 				perturbation = 'rotation'
 				perturb_unit = 'deg'
@@ -336,7 +469,7 @@ class GQCNN_Analyse():
 				pred = predictions[perturb_arr[:,index]==current_perturb]
 				lab = labels[perturb_arr[:,index]==current_perturb]
 				res = BinaryClassificationResult(pred[:,1],lab)
-				perturb_mode = perturbation+' %.0f ' % (current_perturb[0])+perturb_unit
+				perturb_mode = perturbation+' %.0f ' % (current_perturb)+perturb_unit
 				self._plot_histograms(pred[:,1],lab,perturbation+'_%.0f_'%(current_perturb)+perturb_unit,model_output_dir)
 					
 				self.logger.info("Grasp %s Model %s error rate: %.3f" %
@@ -437,8 +570,7 @@ class GQCNN_Analyse():
 			self.logger.info("Model %s loss: %.3f" %
 				(model_dir, results.cross_entropy_loss))
 
-			if obj_arr is not None:
-				print(type(obj_arr))
+			if obj_arr is not None and 'Cornell' in data_dir:
 				unique = np.unique(obj_arr).tolist()
 				object_label = pd.read_csv("./data/training/Cornell/original/z.txt",sep=" ",header=None,usecols=[1,2]).drop_duplicates().to_numpy()
 				true_pos = dict() 
@@ -446,6 +578,7 @@ class GQCNN_Analyse():
 				false_pos = dict()
 				true_neg = dict()
 				for obj in unique:
+					obj = int(obj)
 					true_pos[object_label[obj,1]] = 0
 					false_pos[object_label[obj,1]] = 0
 					true_neg[object_label[obj,1]] = 0
@@ -488,20 +621,19 @@ class GQCNN_Analyse():
 				else:
 					cnt += 1
 			except:
-				print("Could not access file_arr. Does it exist?")
 				cnt += 1
 			if noise_analysis:
 				image = self._plot_grasp(image_arr[j],width_arr[j],results,j,noise_arr=noise_arr)
 			elif depth_analysis:
 				image = self._plot_grasp(image_arr[j],width_arr[j],results,j,depth_arr=depth_arr)
 			elif perturb_analysis or single_analysis:
+				print("Plot grasp")
 				image = self._plot_grasp(image_arr[j],width_arr[j],results,j,perturb_arr=perturb_arr)
 			else:
 				image = self._plot_grasp(image_arr[j],width_arr[j],results,j)
 			try:
 				image.save(os.path.join(model_output_dir,"%05d_%03d_example_%03d.png" % (file_arr[j][0],file_arr[j][1],cnt)))
 			except:
-				print("Saving image did not work. Maybe due to non-excisting file_arr")
 				image.save(os.path.join(model_output_dir,"Example_%03d.png" % (cnt)))
 		if single_analysis:
 			print("Plotting depth image")
@@ -512,7 +644,7 @@ class GQCNN_Analyse():
 		return results
 
 
-	def _read_data(self,data_dir, noise=False,depth=False,perturb=False):
+	def _read_data(self,data_dir, noise=False,depth=False,perturb=False,mixture=False):
 		""" Read in the data from the given directory.
 		Appends all .npz file into the same array.
 		Warning: This might be unsuitable for too many images!
@@ -529,14 +661,11 @@ class GQCNN_Analyse():
 			self.dset = 'Unknown'
 
 		files = os.listdir(data_dir)
-		image_arr = np.empty((32,32,1)) 
-		metric_arr = np.empty([])
 		pose_arr = np.empty([])
 		width_arr = np.empty([])
-		file_arr = np.empty([])
 		noise_arr = np.empty([])
 		depth_arr = np.empty([])
-		obj_arr = np.empty([])
+
 		labels = []
 		numbers = [string[-9:-4] for string in files if '.npz' in string]
 		counter = len(list(set(numbers)))
@@ -546,6 +675,9 @@ class GQCNN_Analyse():
 		image_arr= np.load(data_dir+"depth_ims_tf_table_"+filenumber+".npz")['arr_0']
 		poses = np.load(data_dir+"hand_poses_"+filenumber+".npz")['arr_0']
 		metric_arr = np.load(data_dir+"robust_ferrari_canny_"+filenumber+".npz")['arr_0']
+	
+		if mixture:
+			identity_arr = np.load(data_dir+"identifier_"+filenumber+".npz")['arr_0']
 
 		pose_arr = poses[:,2:3]
 		width_arr = poses[:,-1]
@@ -582,6 +714,8 @@ class GQCNN_Analyse():
 			labels = np.append(labels,label.astype(np.uint8))
 			if read_obj_arr:
 				obj_arr = np.concatenate((obj_arr,np.load(data_dir+"object_labels_"+filenumber+".npz")['arr_0']))
+			if mixture:
+				identity_arr = np.concatenate((identity_arr,np.load(data_dir+"identifier_"+filenumber+".npz")['arr_0']))
 		if noise:
 			# Add the noise levels, if analysing noise
 			noise_arr = np.load(data_dir+"noise_and_tilting_00000.npz")['arr_0']
@@ -623,9 +757,15 @@ class GQCNN_Analyse():
 			#print("Shape image_arr: ",image_arr.shape)
 			return image_arr,pose_arr,labels,width_arr,file_arr,perturb_arr
 		if read_obj_arr:
+			if mixture:
+				return image_arr,pose_arr,labels,width_arr,file_arr,obj_arr,identity_arr
+
 			return image_arr,pose_arr,labels,width_arr,file_arr,obj_arr
 		else:
-			return image_arr,pose_arr,labels,width_arr,file_arr,None
+			if read_file_arr:
+				return image_arr,pose_arr,labels,width_arr,file_arr,None
+			else:
+				return image_arr,pose_arr,labels,width_arr,None,None
 
 
 if __name__ == "__main__":
@@ -646,12 +786,17 @@ if __name__ == "__main__":
 				type=str,
 				default=None,
 				help="Should there be a special analysis? Can be depth or noise.")
+	parser.add_argument("--visualisation",
+				type=bool,
+				default=False,
+				help="Visualise the t-SNE embeddings.")
 	
 	args = parser.parse_args()
 	model_name = args.model_name
 	output_dir = args.output_dir
 	data_dir = args.data_dir
 	analysis_type = args.analysis
+	visu = args.visualisation
 
 	 # Create model dir.
 	model_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -698,4 +843,7 @@ if __name__ == "__main__":
 
 	# Initalise analyser and run analysis.
 	analyser = GQCNN_Analyse(model = model, dset = dset)
-	analyser.run_analysis(model_dir,output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis,single_analysis)
+	if visu:
+		analyser.visualise(model_dir,output_dir,data_dir)
+	else:
+		analyser.run_analysis(model_dir,output_dir,data_dir,noise_analysis,depth_analysis,perturb_analysis,single_analysis)
