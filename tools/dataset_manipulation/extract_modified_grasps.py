@@ -55,6 +55,7 @@ class Modification():
 		self.random = False
 		self.manual = False
 		self.csv = False
+		self.txt = False
 		self.filter_training = True
 		
 		self.tensor = None
@@ -69,7 +70,8 @@ class Modification():
 				self.array = array
 		elif selection == 'csv':
 			self.csv = True
-
+		elif selection == 'txt':
+			self.txt = True
 		else:
 			raise ValueError("No selection type chosen.")
 
@@ -112,6 +114,19 @@ class Modification():
 		closest_point = depth_table.min()
 		depth = table - (table-closest_point)*value
 		return depth
+
+	def _read_txt_file(self):
+		filenumber = []
+		array = []
+		filename = '../dex-net/data/generated_val_indices.txt'
+		with open(filename,'r') as txtfile:
+			for row in txtfile:
+				data = row.split(',')
+				if 'Tensor' in data:
+					continue
+				filenumber.append(int(data[0]))
+				array.append(int(data[1]))
+		return filenumber,array 
 
 	def _read_csv_file(self):
 		filenumber = []
@@ -171,11 +186,13 @@ class Modification():
 		if self.csv:
 			tensors,arrays = self._read_csv_file()
 			self.export_path = self.export_path[0:-1]+self.csv_object+'/'
+		elif self.txt:
+			tensors,arrays = self._read_txt_file()
 		if not os.path.exists(self.export_path):
 			os.mkdir(self.export_path)
 		print("Save files to ",self.export_path)
 		while True:
-			if self.csv:
+			if self.csv or self.txt:
 				print(len(tensors)," images for saving")
 				for cnt, tensor in enumerate(tensors):
 					# open and save each image
@@ -285,7 +302,7 @@ if __name__ == "__main__":
 	parser.add_argument("--selection",
 				type = str,
 				default = 'random',
-				help = "Selection process. 'random', 'manual' or 'csv' possible.")
+				help = "Selection process. 'random', 'manual', 'txt' or 'csv' possible.")
 	parser.add_argument("--mixture",
 				type=bool,
 				default=False,
