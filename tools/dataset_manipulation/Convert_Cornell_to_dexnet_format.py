@@ -19,7 +19,7 @@ class Conversion:
 		self.creating_original = False
 		self.camera_variation = True
 		self.export_path = export_path 
-		self.perspective_projection = False
+		self.perspective_projection = True
 
 		if not os.path.exists(os.path.abspath(self.export_path)):
 			os.mkdir(self.export_path)
@@ -175,6 +175,7 @@ class Conversion:
 
 	def _point_projection(self,data):
 		homogeneous = np.append(np.transpose(data),np.ones((1,len(data))),axis=0)
+		print("Rt:",self.Rt)
 		moved_points = np.dot(self.Rt,homogeneous)
 		projected_points = np.dot(self._K,moved_points)
 		return projected_points

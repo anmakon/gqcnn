@@ -56,6 +56,13 @@ class Absolute_Prediction_Error():
 		neg_images = len(self.all_error_neg)
 		print("Accuracy on unsuccessful images is: ",neg_correct/neg_images*100,"%")
 
+		val_pos_correct = len(np.where(self.val_error_pos<=0.5)[0])
+		val_pos_images = len(self.val_error_pos)
+		print("Accuracy on successful validation images is: ",val_pos_correct/val_pos_images*100,"%")
+
+		val_neg_correct = len(np.where(self.val_error_neg<=0.5)[0])
+		val_neg_images = len(self.val_error_neg)
+		print("Accuracy on unsuccessful validation images is: ",val_neg_correct/val_neg_images*100,"%")
 
 		return None
 
