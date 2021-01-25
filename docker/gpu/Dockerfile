@@ -1,7 +1,8 @@
-FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu16.04
+FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
 
 MAINTAINER Vishal Satish <vsatish@berkeley.edu>
-
+ENV TZ=Europe/Dublin
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 # Args
 # `work_dir` must be an absolute path.
 ARG work_dir=/root/Workspace
@@ -12,31 +13,25 @@ RUN apt-get update && apt-get install -y \
         python3 \
         python3-dev \
         python3-tk \
+	python3-pip \
         python-opengl \
         curl \
         libsm6 \
         libxext6 \
+	libspatialindex-dev \
         libglib2.0-0 \
         libxrender1 \
         wget \
+	vim \
         unzip
 
-# Install libspatialindex (required for latest rtree).
-RUN curl -L http://download.osgeo.org/libspatialindex/spatialindex-src-1.8.5.tar.gz | tar xz && \
-    cd spatialindex-src-1.8.5 && \
-    ./configure && \
-    make && \
-    make install && \
-    ldconfig && \
-    cd ..
-
 # Install pip (`apt-get install python-pip` causes trouble w/ networkx).
-RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
-	python3 get-pip.py && \
-	rm get-pip.py
+#RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
+#	python3 get-pip.py && \
+#	rm get-pip.py
 
 # Required for easy_install to find right skimage version for Python 3.5.
-RUN pip3 install -U setuptools
+RUN python3 -m pip install -U setuptools && python3 -m pip install --upgrade pip && pip3 --version
 
 # Make working directory.
 WORKDIR ${work_dir}
@@ -45,7 +40,8 @@ WORKDIR ${work_dir}
 ADD docker/gqcnn.tar .
 
 # This is because `python setup.py develop` skips install_requires (I think) and also because we want to explicitly use the GPU requirements.
-RUN python3 -m pip install -r gqcnn/requirements/gpu_requirements.txt
+RUN python3 -m pip install -r gqcnn/requirements/gpu_requirements.txt && \
+	python3 -m pip install pandas
 
 # Install the library in editable mode because it's more versatile (in case we want to develop or if users want to modify things)
 # Keep the egg outside of the library in site-packages in case we want to mount the library (overwriting it) for development with docker

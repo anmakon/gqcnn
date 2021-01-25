@@ -1,6 +1,8 @@
-FROM ubuntu:xenial
+FROM ubuntu:bionic
 
 MAINTAINER Vishal Satish <vsatish@berkeley.edu>
+ENV TZ=Europe/Dublin
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # Args.
 # Must be an absolute path.
@@ -12,31 +14,21 @@ RUN apt-get update && apt-get install -y \
         python3 \
         python3-dev \
         python3-tk \
+	python3-pip \
         python-opengl \
         curl \
         libsm6 \
         libxext6 \
         libglib2.0-0 \
         libxrender1 \
+	libspatialindex-dev \
+	vim \
         wget \
         unzip
 
-# Install libspatialindex (required for latest rtree).
-RUN curl -L http://download.osgeo.org/libspatialindex/spatialindex-src-1.8.5.tar.gz | tar xz && \
-    cd spatialindex-src-1.8.5 && \
-    ./configure && \
-    make && \
-    make install && \
-    ldconfig && \
-    cd ..
-
-# Install pip (`apt-get install python-pip` causes trouble w/ networkx).
-RUN curl -O https://bootstrap.pypa.io/get-pip.py && \
-	python3 get-pip.py && \
-	rm get-pip.py
-
 # Required for easy_install to find right skimage version for Python 3.5.
-RUN pip3 install -U setuptools
+RUN python3 -m pip install -U setuptools && \
+	python3 -m pip install --upgrade pip
 
 # Make working directory.
 WORKDIR ${work_dir}
@@ -45,7 +37,8 @@ WORKDIR ${work_dir}
 ADD docker/gqcnn.tar .
 
 # This is because `python setup.py develop` skips `install_requires` (I think).
-RUN python3 -m pip install -r gqcnn/requirements/cpu_requirements.txt
+RUN python3 -m pip install -r gqcnn/requirements/cpu_requirements.txt && \
+	python3 -m pip install pandas
 
 # Install the library in editable mode because it's more versatile (in case we want to develop or if users want to modify things)
 # Keep the egg outside of the library in site-packages in case we want to mount the library (overwriting it) for development with docker

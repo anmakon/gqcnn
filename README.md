@@ -1,4 +1,31 @@
-## Note: Python 2.x support has officially been dropped.
+## Installation
+
+1. Make sure you have a working version of nvidia-docker or docker installed on your computer. 
+2. Clone this [gqcnn repository](https://github.com/anmakon/gqcnn) to a directory of your choice: `$WORKING_DIR/gqcnn`
+3. Create a directory to store your results in, e.g. `$RESULTS`.
+4. Download the trained [model](https://maynoothuniversity.sharepoint.com/:u:/r/sites/AnnaPhD/Shared%20Documents/General/models.zip?csf=1&web=1&e=VNE7zO)
+   from the SharePoint and extract the zip file in `$WORKING_DIR/gqcnn/.`.
+5. Run `./build.sh` from `$WORKING_DIR/gqcnn/`. Choose 1 if you have nvidia-docker and would like to use the GPU, 0 otherwise.
+6. Set the variables `DATA_PATH` and `EXPER_PATH` in `gqcnn/run_docker.sh` to your `$DATA_DIR` and 
+   `$RESULTS` directories. `$DATA_DIR` should be pointing to the directory where your DexNet datasets are stored.
+7. Run `./run_docker.sh` from `$WORKING_DIR/gqcnn/`. 
+
+### Evaluate dataset
+
+In order to evaluate a dataset, run
+```
+python3 tools/detailed_analysis.py GQCNN-2.0_benchmark $DATASET_DIR --output_dir $DATASET_OUTPUT_DIR
+```
+
+For example, if you want to evaluate a recreated PerfectPredictions dataset, run:
+```
+python3 tools/detailed_analysis.py GQCNN-2.0_benchmark Recreated_grasps/tensors/ --output_dir Recreated_grasps
+```
+
+The logfile and the images with prediction values are stored in `$RESULTS/$DATASET_OUTPUT_DIR/`.
+
+------------------------
+-----------------------
 
 # Berkeley AUTOLAB's GQCNN Package
 <p>

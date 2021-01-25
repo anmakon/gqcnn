@@ -108,18 +108,18 @@ if __name__ == "__main__":
     # Set default output dir.
     if output_dir is None:
         output_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                  "../models")
+                                  "../../models")
 
     # Set default config filename.
     if config_filename is None:
         config_filename = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..",
+            os.path.dirname(os.path.realpath(__file__)), "../..",
             "cfg/finetune.yaml")
 
     # Set default model dir.
     if model_dir is None:
         model_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                 "../models")
+                                 "../../models")
 
     # Turn relative paths absolute.
     if not os.path.isabs(dataset_dir):

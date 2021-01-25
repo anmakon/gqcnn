@@ -74,7 +74,7 @@ if __name__ == "__main__":
     # Make relative paths absolute.
     if not os.path.isabs(config_filename):
         config_filename = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..", config_filename)
+            os.path.dirname(os.path.realpath(__file__)), "../..", config_filename)
 
     # Set random seed.
     if seed is not None:

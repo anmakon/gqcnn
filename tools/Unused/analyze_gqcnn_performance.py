@@ -33,6 +33,7 @@ import os
 
 from autolab_core import YamlConfig, Logger
 from gqcnn import GQCNNAnalyzer
+from path_settings import EXPER_PATH
 
 # Setup logger.
 logger = Logger.get_logger("tools/analyze_gqcnn_performance.py")
@@ -40,8 +41,7 @@ logger = Logger.get_logger("tools/analyze_gqcnn_performance.py")
 if __name__ == "__main__":
     # Parse args.
     parser = argparse.ArgumentParser(
-        description=("Analyze a Grasp Quality Convolutional Neural Network"
-                     " with TensorFlow"))
+        description="Analyze a Grasp Quality Convolutional Neural Network with TensorFlow")
     parser.add_argument("model_name",
                         type=str,
                         default=None,
@@ -50,11 +50,10 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="path to save the analysis")
-    parser.add_argument(
-        "--dataset_config_filename",
-        type=str,
-        default=None,
-        help="path to a configuration file for testing on a custom dataset")
+    parser.add_argument("--dataset_config_filename",
+                        type=str,
+                        default=None,
+                        help="path to a configuration file for testing on a custom dataset")
     parser.add_argument("--config_filename",
                         type=str,
                         default=None,
@@ -73,7 +72,7 @@ if __name__ == "__main__":
     # Create model dir.
     if model_dir is None:
         model_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                 "../models")
+                                 "../../models")
     model_dir = os.path.join(model_dir, model_name)
 
     # If `model_dir` contains many models, analyze all of them.
@@ -86,16 +85,14 @@ if __name__ == "__main__":
 
     # Set defaults.
     if output_dir is None:
-        output_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                  "../analysis")
+        output_dir = EXPER_PATH + "analysis/"
+
     if config_filename is None:
         config_filename = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..",
+            os.path.dirname(os.path.realpath(__file__)), "../..",
             "cfg/tools/analyze_gqcnn_performance.yaml")
 
     # Turn relative paths absolute.
-    if not os.path.isabs(output_dir):
-        output_dir = os.path.join(os.getcwd(), output_dir)
     if not os.path.isabs(config_filename):
         config_filename = os.path.join(os.getcwd(), config_filename)
     if dataset_config_filename is not None and not os.path.isabs(
